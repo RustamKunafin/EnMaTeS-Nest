@@ -9,7 +9,7 @@ Copyright (c) Rustam Kunafin 2025. All rights reserved.
 
 3. **Derivative Works with Membra DNA**
    - You may create derivative works (e.g., specialized versions or add-ons) based on Membra core artifacts.
-   - Derivatives may be distributed under any license of your choice (including proprietary), but must acknowledge Membra as the conceptual foundation and include a reference to this MODL (e.g., "Based on Membra, licensed under MODL v1.0, https://cyberries.org/04_Resources/Agreements/MODL").
+   - Derivatives may be distributed under any license of your choice (including proprietary), but must acknowledge Membra as the conceptual foundation and include a reference to this MODL (e.g., "Based on Membra, licensed under MODL v1.0, https://cyberries.org/04_Resources/0440_Agreements/MODL").
    - Optionally, share derivatives openly (e.g., via smart contracts on decentralized platforms) to contribute to the Membra ecosystem.
 
 4. **Preservation of Original**
@@ -17,7 +17,7 @@ Copyright (c) Rustam Kunafin 2025. All rights reserved.
    - Contributions to core artifacts must be submitted to the original repositories (e.g., EnMaTeS-Nest) for review and integration.
 
 5. **Evolving License**
-   - This license may be updated by the author to reflect Membra’s evolution (e.g., new methodologies, decentralized governance). Updates will be versioned (e.g., MODL v1.1) and published at https://cyberries.org/04_Resources/Agreements/MODL. Existing users may continue under the version they accepted, but integration of new core artifact updates requires adherence to the latest MODL version to access enhanced features and community support.
+   - This license may be updated by the author to reflect Membra’s evolution (e.g., new methodologies, decentralized governance). Updates will be versioned (e.g., MODL v1.1) and published at https://cyberries.org/04_Resources/0440_Agreements/MODL. Existing users may continue under the version they accepted, but integration of new core artifact updates requires adherence to the latest MODL version to access enhanced features and community support.
 
 6. **Decentralized Development**
    - The author may introduce a decentralized governance model (e.g., DAO) where roles, access levels, and contributions are managed via smart contracts. This license will adapt accordingly.
@@ -25,4 +25,4 @@ Copyright (c) Rustam Kunafin 2025. All rights reserved.
 7. **Disclaimer**
    - This work is provided "as is," without warranty of any kind. The author is not liable for any damages arising from its use.
 
-For the latest version, see https://cyberries.org/04_Resources/Agreements/MODL.
+For the latest version, see https://cyberries.org/04_Resources/0440_Agreements/MODL.
