@@ -16,4 +16,4 @@ EnMaTeS (Entrepreneurial Managerial Technological System) — Предприни
 
 Система объединяет единой архитектурой предпринимательский, управленческий и технологический аспекты бизнеса.
 
-test from comp #5
+test from fs #1
