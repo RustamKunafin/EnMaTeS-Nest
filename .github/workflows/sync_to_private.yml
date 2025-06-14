@@ -1,0 +1,54 @@
+name: Sync to connectome (private)
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  sync-to-private:
+    runs-on: ubuntu-latest
+    if: "!contains(github.event.head_commit.message, '[CI-SYNC]')"
+
+    steps:
+      # Шаг 1: Скачиваем репозиторий-источник (EnMaTeS-Nest)
+      - name: Checkout Source Repo (EnMaTeS-Nest)
+        uses: actions/checkout@v4
+
+      # Шаг 2: Скачиваем репозиторий-назначение (connectome) в отдельную папку
+      - name: Checkout Destination Repo (connectome)
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/connectome
+          token: ${{ secrets.PAT_SYNC }}
+          path: connectome-repo
+
+      # --- НАЧАЛО БЛОКА ОТЛАДКИ ---
+      - name: Install tree for debugging
+        run: sudo apt-get update && sudo apt-get install -y tree
+
+      - name: Debug - Show Workspace Structure
+        run: |
+          echo "--- Workspace Structure (tree -L 3) ---"
+          tree -L 3
+      # --- КОНЕЦ БЛОКА ОТЛАДКИ ---
+
+      # Шаг 3: Копируем файлы из источника в нужную папку назначения
+      - name: Sync files to connectome subdirectory
+        run: |
+          mkdir -p ./connectome-repo/02_Systems/0221_EnMaTeS/
+          rsync -av --delete --exclude='.github' ./ ./connectome-repo/02_Systems/0221_EnMaTeS/
+
+      # Шаг 4: Коммитим и пушим изменения в connectome
+      - name: Commit and push changes to connectome
+        working-directory: ./connectome-repo
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          if ! git diff --quiet; then
+            git add .
+            git commit -m "sync: Update from EnMaTeS-Nest [CI-SYNC-BACK]"
+            git push
+          else
+            echo "No changes to sync."
+          fi
