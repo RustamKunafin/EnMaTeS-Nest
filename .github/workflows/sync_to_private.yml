@@ -11,28 +11,41 @@ jobs:
     if: "!contains(github.event.head_commit.message, '[CI-SYNC]')"
 
     steps:
-      # Шаг 1: Скачиваем репозиторий-назначение (connectome)
       - name: Checkout Destination Repo (connectome)
         uses: actions/checkout@v4
         with:
           repository: ${{ github.repository_owner }}/connectome
           token: ${{ secrets.PAT_SYNC }}
-          fetch-depth: 1 # <-- ВОТ ОПТИМИЗАЦИЯ. Качаем без истории.
+          fetch-depth: 1
 
-      # Шаг 2: Скачиваем репозиторий-источник (EnMaTeS-Nest) во временную папку
       - name: Checkout Source Repo (EnMaTeS-Nest)
         uses: actions/checkout@v4
         with:
           repository: ${{ github.repository_owner }}/EnMaTeS-Nest
           path: source-repo-temp
 
-      # Шаг 3: Синхронизируем файлы из временной папки в целевую
+      # --- НАЧАЛО БЛОКА ОТЛАДКИ ---
+      - name: Install tree for debugging
+        run: sudo apt-get update && sudo apt-get install -y tree
+
+      - name: Debug - Before Sync
+        run: |
+          echo "--- Structure BEFORE rsync ---"
+          tree -L 4 .
+      # --- КОНЕЦ БЛОКА ОТЛАДКИ ---
+
       - name: Sync files from source to destination
         run: |
           mkdir -p ./02_Systems/0221_EnMaTeS/
           rsync -av --delete --exclude='.github' ./source-repo-temp/ ./02_Systems/0221_EnMaTeS/
 
-      # Шаг 4: Коммитим и пушим изменения в connectome
+      # --- НАЧАЛО БЛОКА ОТЛАДКИ 2 ---
+      - name: Debug - After Sync
+        run: |
+          echo "--- Structure AFTER rsync ---"
+          tree -L 4 .
+      # --- КОНЕЦ БЛОКА ОТЛАДКИ 2 ---
+
       - name: Commit and push changes to connectome
         run: |
           git config user.name 'github-actions[bot]'
