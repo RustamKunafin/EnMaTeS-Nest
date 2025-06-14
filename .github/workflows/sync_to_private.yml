@@ -1,0 +1,64 @@
+name: Sync to connectome (private)
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  sync-to-private:
+    runs-on: ubuntu-latest
+    if: "!contains(github.event.head_commit.message, '[CI-SYNC]')"
+
+    steps:
+      - name: Checkout Destination Repo (connectome)
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/connectome
+          token: ${{ secrets.PAT_SYNC }}
+          fetch-depth: 1
+
+      - name: Checkout Source Repo (EnMaTeS-Nest)
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/EnMaTeS-Nest
+          path: source-repo-temp
+
+      # --- НАЧАЛО БЛОКА ОТЛАДКИ ---
+      - name: Install tree for debugging
+        run: sudo apt-get update && sudo apt-get install -y tree
+
+      - name: Debug - Before Sync
+        run: |
+          echo "--- Structure BEFORE rsync ---"
+          tree -L 4 .
+      # --- КОНЕЦ БЛОКА ОТЛАДКИ ---
+
+      - name: Sync files from source to destination
+        run: |
+          mkdir -p ./02_Systems/0221_EnMaTeS/
+          rsync -av --delete --exclude='.github' ./source-repo-temp/ ./02_Systems/0221_EnMaTeS/
+
+      # --- НАЧАЛО БЛОКА ОТЛАДКИ 2 ---
+      - name: Debug - After Sync
+        run: |
+          echo "--- Structure AFTER rsync ---"
+          tree -L 4 .
+      # --- КОНЕЦ БЛОКА ОТЛАДКИ 2 ---
+
+      # ШАГ 4 - НОВАЯ, БОЛЕЕ НАДЕЖНАЯ ЛОГИКА
+      - name: Commit and push changes to connectome
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          
+          # Принудительно добавляем ВСЕ файлы в индекс Git.
+          git add -A
+          
+          # Теперь проверяем, есть ли что-то в "подготовленных" (staged) изменениях.
+          if ! git diff --staged --quiet; then
+            git commit -m "sync: Update from EnMaTeS-Nest [CI-SYNC-BACK]"
+            git push
+          else
+            echo "No changes to sync."
+          fi
