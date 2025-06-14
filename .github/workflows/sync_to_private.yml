@@ -11,51 +11,34 @@ jobs:
     if: "!contains(github.event.head_commit.message, '[CI-SYNC]')"
 
     steps:
+      # Шаг 1: Скачиваем ИСТОЧНИК (EnMaTeS-Nest) в папку 'source-repo'
+      - name: Checkout Source Repo (EnMaTeS-Nest)
+        uses: actions/checkout@v4
+        with:
+          path: source-repo
+
+      # Шаг 2: Скачиваем НАЗНАЧЕНИЕ (connectome) в ДРУГУЮ папку 'dest-repo'
       - name: Checkout Destination Repo (connectome)
         uses: actions/checkout@v4
         with:
           repository: ${{ github.repository_owner }}/connectome
           token: ${{ secrets.PAT_SYNC }}
+          path: dest-repo
           fetch-depth: 1
 
-      - name: Checkout Source Repo (EnMaTeS-Nest)
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ github.repository_owner }}/EnMaTeS-Nest
-          path: source-repo-temp
-
-      # --- НАЧАЛО БЛОКА ОТЛАДКИ ---
-      - name: Install tree for debugging
-        run: sudo apt-get update && sudo apt-get install -y tree
-
-      - name: Debug - Before Sync
+      # Шаг 3: Синхронизируем файлы из источника в подпапку назначения
+      - name: Sync files to connectome subdirectory
         run: |
-          echo "--- Structure BEFORE rsync ---"
-          tree -L 4 .
-      # --- КОНЕЦ БЛОКА ОТЛАДКИ ---
+          mkdir -p ./dest-repo/02_Systems/0221_EnMaTeS/
+          rsync -av --delete --exclude='.github' ./source-repo/ ./dest-repo/02_Systems/0221_EnMaTeS/
 
-      - name: Sync files from source to destination
-        run: |
-          mkdir -p ./02_Systems/0221_EnMaTeS/
-          rsync -av --delete --exclude='.github' ./source-repo-temp/ ./02_Systems/0221_EnMaTeS/
-
-      # --- НАЧАЛО БЛОКА ОТЛАДКИ 2 ---
-      - name: Debug - After Sync
-        run: |
-          echo "--- Structure AFTER rsync ---"
-          tree -L 4 .
-      # --- КОНЕЦ БЛОКА ОТЛАДКИ 2 ---
-
-      # ШАГ 4 - НОВАЯ, БОЛЕЕ НАДЕЖНАЯ ЛОГИКА
+      # Шаг 4: Коммитим и пушим изменения из папки 'dest-repo'
       - name: Commit and push changes to connectome
+        working-directory: ./dest-repo
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email 'github-actions[bot]@users.noreply.github.com'
-          
-          # Принудительно добавляем ВСЕ файлы в индекс Git.
-          git add -A
-          
-          # Теперь проверяем, есть ли что-то в "подготовленных" (staged) изменениях.
+          git add .
           if ! git diff --staged --quiet; then
             git commit -m "sync: Update from EnMaTeS-Nest [CI-SYNC-BACK]"
             git push
