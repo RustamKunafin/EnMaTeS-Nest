@@ -8,10 +8,10 @@ description:
 tags: EnMaTeS
 publish: true
 ---
-*Licensed under Membra Open Development License (MODL).  
+Licensed under Membra Open Development License (MODL).  
 See LICENSE: [https://cyberries.org/04_Resources/Agreements/MODL](https://cyberries.org/04_Resources/Agreements/MODL).  
-Core artifacts are under MODL; derivatives may use other licenses with attribution.*
+Core artifacts are under MODL; derivatives may use other licenses with attribution.
 
-EnMaTeS (Entrepreneurial-Managerial-Technological System) — Предпринимательско-управленческо-технологическая система.
+EnMaTeS (Entrepreneurial Managerial Technological System) — Предпринимательско-управленческо-технологическая система.
 
-Как видим из названия — это система которая объединяет единой архитектурой предпринимательский, управленческий и технологический аспекты бизнеса.
+Система объединяет единой архитектурой предпринимательский, управленческий и технологический аспекты бизнеса.
