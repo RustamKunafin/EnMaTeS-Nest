@@ -37,7 +37,8 @@ jobs:
       - name: Sync files to connectome subdirectory
         run: |
           mkdir -p ./connectome-repo/02_Systems/0221_EnMaTeS/
-          rsync -av --delete --exclude='.github' ./ ./connectome-repo/02_Systems/0221_EnMaTeS/
+          # Исключаем .git папку при копировании
+          rsync -av --delete --exclude='.github' --exclude='.git' ./ ./connectome-repo/02_Systems/0221_EnMaTeS/
 
       # Шаг 4: Коммитим и пушим изменения в connectome
       - name: Commit and push changes to connectome
