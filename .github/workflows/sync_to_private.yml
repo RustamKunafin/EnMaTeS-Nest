@@ -46,12 +46,17 @@ jobs:
           tree -L 4 .
       # --- КОНЕЦ БЛОКА ОТЛАДКИ 2 ---
 
+      # ШАГ 4 - НОВАЯ, БОЛЕЕ НАДЕЖНАЯ ЛОГИКА
       - name: Commit and push changes to connectome
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email 'github-actions[bot]@users.noreply.github.com'
-          if ! git diff --quiet; then
-            git add -A
+          
+          # Принудительно добавляем ВСЕ файлы в индекс Git.
+          git add -A
+          
+          # Теперь проверяем, есть ли что-то в "подготовленных" (staged) изменениях.
+          if ! git diff --staged --quiet; then
             git commit -m "sync: Update from EnMaTeS-Nest [CI-SYNC-BACK]"
             git push
           else
