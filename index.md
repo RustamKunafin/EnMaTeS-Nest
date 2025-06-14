@@ -15,5 +15,3 @@ Core artifacts are under MODL; derivatives may use other licenses with attributi
 EnMaTeS (Entrepreneurial Managerial Technological System) — Предпринимательско-управленческо-технологическая система.
 
 Система объединяет единой архитектурой предпринимательский, управленческий и технологический аспекты бизнеса.
-
-test from comp #9
