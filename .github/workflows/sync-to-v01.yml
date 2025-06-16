@@ -23,10 +23,11 @@ jobs:
           path: dest-repo
           fetch-depth: 1
 
-      - name: Sync files to v01 subdirectory
+      - name: Sync files to v01 subdirectory using git archive
         run: |
-          mkdir -p ./dest-repo/EnMaTeS/
-          rsync -av --delete --exclude='.git/' --exclude='.github/' ./source-repo/ ./dest-repo/EnMaTeS/
+          rm -rf ./dest-repo/EnMaTeS
+          mkdir -p ./dest-repo/EnMaTeS
+          git -C ./source-repo archive HEAD | tar -x -C ./dest-repo/EnMaTeS
 
       - name: Commit and push changes to v01
         working-directory: ./dest-repo
@@ -34,6 +35,7 @@ jobs:
           git config user.name '${{ github.actor }}'
           git config user.email '${{ github.actor }}@users.noreply.github.com'
           git add .
+          
           if ! git diff --staged --quiet; then
             git commit -m "sync: Receive update from EnMaTeS-Nest"
             git push
