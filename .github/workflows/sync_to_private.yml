@@ -11,13 +11,11 @@ jobs:
     if: "!contains(github.event.head_commit.message, '[CI-SYNC]')"
 
     steps:
-      # Шаг 1: Скачиваем ИСТОЧНИК (EnMaTeS-Nest) в папку 'source-repo'
       - name: Checkout Source Repo (EnMaTeS-Nest)
         uses: actions/checkout@v4
         with:
           path: source-repo
 
-      # Шаг 2: Скачиваем НАЗНАЧЕНИЕ (connectome) в ДРУГУЮ папку 'dest-repo'
       - name: Checkout Destination Repo (connectome)
         uses: actions/checkout@v4
         with:
@@ -26,13 +24,11 @@ jobs:
           path: dest-repo
           fetch-depth: 1
 
-      # Шаг 3: Синхронизируем файлы из источника в подпапку назначения
       - name: Sync files to connectome subdirectory
         run: |
           mkdir -p ./dest-repo/02_Systems/0221_EnMaTeS/
           rsync -av --delete --exclude='.github' ./source-repo/ ./dest-repo/02_Systems/0221_EnMaTeS/
 
-      # Шаг 4: Коммитим и пушим изменения из папки 'dest-repo'
       - name: Commit and push changes to connectome
         working-directory: ./dest-repo
         run: |
