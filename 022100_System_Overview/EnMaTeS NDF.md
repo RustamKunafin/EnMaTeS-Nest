@@ -10,7 +10,7 @@ tags: Membra, EnMaTeS
 publish: true
 ---
 
-# EnMaTeS Naming and Description Framework (NDF) v1.2.
+# EnMaTeS Naming and Description Framework (NDF) v1.2
 
 ## 1. Общие Принципы Нейминга и Описаний
 
