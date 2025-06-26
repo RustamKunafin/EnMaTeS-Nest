@@ -11,7 +11,7 @@ tags: Membra, EnMaTeS
 publish: true
 ---
 
-# Semantic Modeling Framework (SMF) v2.2
+#  SMF v2.2 (Semantic Modeling Framework)
 
 version: 2.2  
 format: markdown  
