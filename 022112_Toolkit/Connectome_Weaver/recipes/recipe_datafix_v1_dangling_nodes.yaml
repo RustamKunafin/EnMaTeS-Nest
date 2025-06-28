@@ -1,0 +1,73 @@
+# Пример команды для запуска этого рецепта:
+# python 022112_Toolkit/Connectome_Weaver/weaverSG/main.py batch-modify --recipe 022112_Toolkit/Connectome_Weaver/recipes/recipe_datafix_v1_dangling_nodes.yaml --file path/to/MyGraph.md
+
+# ВНИМАНИЕ: Бэкап исходного файла будет создан автоматически командой batch-modify.
+description: "Data Fix: Resolve 3 dangling relations and add the missing repository structure node."
+steps:
+  # --- Шаг 1: Исправить 3 "висячие" связи, чтобы они указывали на Roadmap ---
+  - operation: update_relation
+    params:
+      identity: 
+        from_MUID: "FEAT_EXTRACT_SUBGRAPH_CMD"
+        to_MUID: "a308a937-d5bd-4408-8fa6-1bc181cc038c"
+      updates:
+        to_MUID: "ART_ENMATES_IMPROVEMENT_ROADMAP_V1"
+        type: "documented_in"
+        label: "Feature is tracked in the Roadmap"
+  
+  - operation: update_relation
+    params:
+      identity: 
+        from_MUID: "FEAT_ENMATES_AGENT_REGISTRY"
+        to_MUID: "a308a937-d5bd-4408-8fa6-1bc181cc038c"
+      updates:
+        to_MUID: "ART_ENMATES_IMPROVEMENT_ROADMAP_V1"
+        type: "documented_in"
+        label: "Feature is tracked in the Roadmap"
+        
+  - operation: update_relation
+    params:
+      identity: 
+        from_MUID: "FEAT_ENMATES_AGENT_HIERARCHY"
+        to_MUID: "a308a937-d5bd-4408-8fa6-1bc181cc038c"
+      updates:
+        to_MUID: "ART_ENMATES_IMPROVEMENT_ROADMAP_V1"
+        type: "documented_in"
+        label: "Feature is tracked in the Roadmap"
+
+  # --- Шаг 2: Добавить недостающий узел для 'EnMaTeS_Repository_Structure.md' ---
+  - operation: add_node
+    params:
+      node_data:
+        MUID: "a308a937-d5bd-4408-8fa6-1bc181cc038c"
+        # Поле alias здесь не нужно, т.к. оно будет добавлено следующим рецептом
+        timestamp: "2025-06-26T07:00:00Z"
+        turn_id: "DATAFIX_V1"
+        source: "derived_from_SDA"
+        type: "artifact"
+        content: "EnMaTeS Repository Structure v1.2"
+        role: "stable"
+        context: "meta, content_management, design"
+        explicitness: "explicit"
+        weight: "medium"
+        status: "revised"
+        description: "Описание стандартной структуры папок и файлов для репозитория системы EnMaTeS."
+        version: "1.2"
+
+  # --- Шаг 3: Добавить связи для нового узла ---
+  - operation: add_relation
+    params:
+      relation_data:
+        from_MUID: "a308a937-d5bd-4408-8fa6-1bc181cc038c"
+        to_MUID: "SYS_OVERVIEW_NAMING_CATEGORY"
+        type: "instance_of"
+        weight: "high"
+        
+  - operation: add_relation
+    params:
+      relation_data:
+        from_MUID: "a308a937-d5bd-4408-8fa6-1bc181cc038c"
+        to_MUID: "ENMATES_SYSTEM_ROOT"
+        type: "governs"
+        label: "Defines location for all artifacts"
+        weight: "medium"

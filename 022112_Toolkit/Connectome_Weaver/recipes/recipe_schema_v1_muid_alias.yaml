@@ -1,0 +1,28 @@
+# Пример команды для запуска этого рецепта:
+# python 022112_Toolkit/Connectome_Weaver/weaverSG/main.py batch-modify --recipe 022112_Toolkit/Connectome_Weaver/recipes/recipe_schema_v1_muid_alias.yaml --file path/to/MyGraph.md
+
+# ВНИМАНИЕ: Бэкап исходного файла будет создан автоматически командой batch-modify.
+description: "Schema Migration: Introduce 'alias' field and transition all MUIDs to canonical UUIDs."
+steps:
+  # --- Шаг 1: Добавить поле 'alias' ко всем узлам ---
+  - operation: add_node_field
+    params:
+      field_name: "alias"
+      default_value: ""
+
+  # --- Шаг 2: Скопировать старые текстовые MUID в 'alias' ---
+  - operation: copy_field
+    params:
+      source_field: "MUID"
+      target_field: "alias"
+      where:
+        field: "MUID"
+        condition: "is_not_uuid"
+
+  # --- Шаг 3: Заменить старые MUID на новые каноничные UUID ---
+  - operation: set_field_from_generated_uuid
+    params:
+      target_field: "MUID"
+      where:
+        field: "MUID"
+        condition: "is_not_uuid"
