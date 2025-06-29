@@ -33,11 +33,13 @@ def load_graph(filepath: str, is_log_file=False) -> tuple[str, dict]:
                 json_str = match.group(1)
                 return content, json.loads(json_str)
             else:
-                raise ValueError("JSON блок не найден в файле.")
+                # Если JSON блок не найден, но файл существует, возвращаем его контент и пустой граф
+                print(f"Предупреждение: JSON блок не найден в файле {filepath}. Возвращается пустой граф.")
+                return content, {}
     except FileNotFoundError:
         if is_log_file:
             print(f"Файл лога {filepath} не найден. Будет создан новый.")
-            return "", {"transactions": [], "history_anchors": [], "relations": []}
+            return "", {"nodes": [], "relations": []} # LSG всегда имеет узлы и связи
         raise FileNotFoundError(f"Файл не найден: {filepath}")
     except json.JSONDecodeError:
         raise ValueError(f"Ошибка декодирования JSON в файле: {filepath}")
@@ -52,7 +54,6 @@ def save_graph(graph_data: dict, filepath: str, original_content: str = "") -> N
     if 'nodes' in graph_data:
       graph_data['nodes'] = sorted(graph_data['nodes'], key=lambda x: x.get('MUID', ''))
     if 'relations' in graph_data:
-      # Сортировка по MUID или LID
       graph_data['relations'] = sorted(graph_data['relations'], key=lambda x: (x.get('MUID', x.get('LID', ''))))
     
     # Сортировка ключей внутри каждого объекта
@@ -70,8 +71,14 @@ def save_graph(graph_data: dict, filepath: str, original_content: str = "") -> N
     
     if original_content and '```json' in original_content:
         updated_content, num_replacements = re.subn(r'```json\n(.*?)\n```', new_json_block, original_content, flags=re.DOTALL)
-    else: # Создание файла с нуля
-        updated_content = f"# Semantic Graph\n\n{new_json_block}\n"
+        if num_replacements == 0:
+             # Если блок был, но re.sub не сработал (редкий случай), добавляем в конец
+             updated_content = original_content + '\n' + new_json_block
+    else: # Создание файла с нуля или добавление блока, если его не было
+        # Убираем старый блок, если он был, чтобы избежать дублирования
+        original_content_no_block = re.sub(r'```json\n(.*?)\n```', '', original_content, flags=re.DOTALL).strip()
+        updated_content = f"{original_content_no_block}\n\n{new_json_block}\n".strip()
+
 
     with open(filepath, 'w', encoding='utf-8') as f:
         f.write(updated_content)

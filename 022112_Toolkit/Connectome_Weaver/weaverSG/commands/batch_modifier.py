@@ -34,13 +34,12 @@ def process_batch_recipe(graph_data: dict, args) -> tuple[dict, list, str]:
         
         if operation_name in OPERATIONS_MAP:
             operation_func = OPERATIONS_MAP[operation_name]
-            graph_data, change_record = operation_func(graph_data, params)
-            if change_record:
-                # Если операция возвращает список (как массовые операции), расширяем changeset
-                if isinstance(change_record, list):
-                    changeset.extend(change_record)
+            graph_data, records = operation_func(graph_data, params)
+            if records:
+                if isinstance(records, list):
+                    changeset.extend(records)
                 else:
-                    changeset.append(change_record)
+                    changeset.append(records)
         else:
             print(f"Предупреждение: Шаг '{operation_name}' неизвестен и будет пропущен.")
 

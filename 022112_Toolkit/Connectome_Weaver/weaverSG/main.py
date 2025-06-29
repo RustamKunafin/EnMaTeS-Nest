@@ -12,6 +12,7 @@ from core.lsg_manager import TransactionManager
 from core.utils import create_backup
 from commands.batch_modifier import process_batch_recipe
 from commands.promote_handler import process_promote_relation
+from commands.validator import process_validation
 
 def main():
     """
@@ -35,27 +36,27 @@ def main():
     parser_promote.add_argument('--no-backup', action='store_true', help='Отключить автоматическое создание бэкапа.')
     parser_promote.set_defaults(process_func=process_promote_relation)
     
-    # --- (Будущее) Команда validate ---
-    # parser_validate = subparsers.add_parser('validate', help='Проверить граф на целостность.')
-    # parser_validate.add_argument('--file', required=True, help='Путь к файлу семантического графа (SG).')
-    # parser_validate.set_defaults(process_func=handle_validate)
+    # --- Команда validate ---
+    parser_validate = subparsers.add_parser('validate', help='Проверить граф на целостность и записать ошибки в файл.')
+    parser_validate.add_argument('--file', required=True, help='Путь к файлу семантического графа (SG).')
+    parser_validate.add_argument('--no-backup', action='store_true', help='Отключить автоматическое создание бэкапа.')
+    parser_validate.set_defaults(process_func=process_validation)
 
     args = parser.parse_args()
     
     # --- Шаг 1: Подготовка ---
     original_content, graph_data = load_graph(args.file)
-    lsg_filepath = get_lsg_filepath(args.file)
 
     # --- Шаг 2: Бэкап (по умолчанию) ---
     if not args.no_backup:
-        create_backup(args.file)
+        create_backup(args.file, command=args.command)
     
     # --- Шаг 3: Выполнение команды и сбор изменений ---
-    # Вызываем нужную функцию-обработчик и получаем результат
     updated_graph, changeset, recipe_name = args.process_func(graph_data, args)
         
     # --- Шаг 4: Коммит транзакции и сохранение ---
     if changeset:
+        lsg_filepath = get_lsg_filepath(args.file)
         tm = TransactionManager(recipe_name, lsg_filepath, args.file)
         tm.add_changes(changeset)
         tm.commit_and_save(updated_graph, original_content)

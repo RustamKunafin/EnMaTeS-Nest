@@ -1,8 +1,8 @@
-# Пример команды для запуска этого рецепта:
-# python 022112_Toolkit/Connectome_Weaver/weaverSG/main.py batch-modify --recipe 022112_Toolkit/Connectome_Weaver/recipes/recipe_datafix_v1_dangling_nodes.yaml --file path/to/MyGraph.md
+# ПРИМЕР КОМАНДЫ ДЛЯ ЗАПУСКА:
+# python 022112_Toolkit/Connectome_Weaver/weaverSG/main.py batch-modify --recipe 022112_Toolkit/Connectome_Weaver/recipes/recipe_datafix_v2.yaml --file 022190_Forge/SG_EnMaTeS_SystemMethodology_WorkingCopy.md
 
-# ВНИМАНИЕ: Бэкап исходного файла будет создан автоматически командой batch-modify.
-description: "Data Fix: Resolve 3 dangling relations and add the missing repository structure node."
+# ВНИМАНИЕ: Этот рецепт исправляет логические ошибки в данных ДО миграции схемы.
+description: "Data Fix v2: Resolve dangling relations and add the missing node, preparing the graph for schema migration."
 steps:
   # --- Шаг 1: Исправить 3 "висячие" связи, чтобы они указывали на Roadmap ---
   - operation: update_relation
@@ -35,14 +35,13 @@ steps:
         type: "documented_in"
         label: "Feature is tracked in the Roadmap"
 
-  # --- Шаг 2: Добавить недостающий узел для 'EnMaTeS_Repository_Structure.md' ---
+  # --- Шаг 2: Добавить недостающий узел ---
   - operation: add_node
     params:
       node_data:
         MUID: "a308a937-d5bd-4408-8fa6-1bc181cc038c"
-        # Поле alias здесь не нужно, т.к. оно будет добавлено следующим рецептом
         timestamp: "2025-06-26T07:00:00Z"
-        turn_id: "DATAFIX_V1"
+        turn_id: "DATAFIX_V2"
         source: "derived_from_SDA"
         type: "artifact"
         content: "EnMaTeS Repository Structure v1.2"
@@ -54,7 +53,7 @@ steps:
         description: "Описание стандартной структуры папок и файлов для репозитория системы EnMaTeS."
         version: "1.2"
 
-  # --- Шаг 3: Добавить связи для нового узла ---
+  # --- Шаг 3: Добавить связи для нового узла (weaverSG автоматически создаст их как 'link' с 'LID') ---
   - operation: add_relation
     params:
       relation_data:

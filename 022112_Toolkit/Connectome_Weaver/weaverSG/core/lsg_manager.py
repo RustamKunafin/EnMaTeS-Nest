@@ -24,7 +24,7 @@ class TransactionManager:
             self.changeset.extend(change_records)
             
     def _get_transaction_id(self):
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
         random_part = os.urandom(4).hex()
         return f"t_{timestamp}_{random_part}"
 
@@ -58,9 +58,9 @@ class TransactionManager:
             # Создать связь от якоря к транзакции
             relation = {
                 "class": "link", # Связи в логе всегда link
-                "LID": f"l_ha_{entity_id}_to_{transaction_node['TID']}", # Детерминированный LID
+                "LID": f"l_ha_{haid}_to_{transaction_node['MUID']}",
                 "from_MUID": haid,
-                "to_MUID": transaction_node["TID"],
+                "to_MUID": transaction_node["MUID"],
                 "type": "includes_change"
             }
             lsg_data.setdefault("relations", []).append(relation)
@@ -76,8 +76,7 @@ class TransactionManager:
             return
 
         transaction_node = {
-            "MUID": self._get_transaction_id(), # У транзакций тоже MUID, т.к. они - узлы в LSG
-            "TID": self._get_transaction_id(), # Для совместимости
+            "MUID": self._get_transaction_id(),
             "type": "Transaction",
             "timestamp": datetime.now().isoformat(),
             "recipe_id": self.recipe_name,

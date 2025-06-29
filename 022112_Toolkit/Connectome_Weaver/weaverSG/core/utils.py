@@ -9,15 +9,15 @@ import shutil
 import os
 from datetime import datetime
 
-def create_backup(filepath: str):
+def create_backup(filepath: str, command: str = "op"):
     """
-    Создает бэкап файла с временной меткой.
+    Создает бэкап файла с временной меткой и названием команды.
     """
     directory, filename_with_ext = os.path.split(filepath)
     filename, ext = os.path.splitext(filename_with_ext)
     
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    backup_filename = f"{filename}.backup.{timestamp}{ext}"
+    backup_filename = f"{filename}.backup_{command}_{timestamp}{ext}"
     backup_filepath = os.path.join(directory, backup_filename)
 
     print(f"Создание бэкапа: {backup_filepath}")
