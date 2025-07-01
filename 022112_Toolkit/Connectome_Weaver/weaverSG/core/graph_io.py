@@ -8,6 +8,7 @@ Licensed under MODL v1.0. See LICENSE or https://cyberries.org/04_Resources/0440
 import json
 import re
 import os
+import yaml
 
 def get_lsg_filepath(sg_filepath: str) -> str:
     """
@@ -17,6 +18,18 @@ def get_lsg_filepath(sg_filepath: str) -> str:
     filename, ext = os.path.splitext(filename_with_ext)
     lsg_filename = f"{filename}_log.md"
     return os.path.join(directory, lsg_filename)
+
+def load_yaml_header(content: str) -> dict:
+    """Извлекает и парсит YAML-шапку из текстового содержимого."""
+    try:
+        match = re.search(r'^---\n(.*?)\n---', content, re.DOTALL)
+        if match:
+            yaml_str = match.group(1)
+            return yaml.safe_load(yaml_str)
+        return {}
+    except yaml.YAMLError as e:
+        print(f"Предупреждение: Ошибка парсинга YAML-шапки: {e}")
+        return {}
 
 def load_graph(filepath: str, is_log_file=False) -> tuple[str, dict]:
     """
@@ -33,13 +46,12 @@ def load_graph(filepath: str, is_log_file=False) -> tuple[str, dict]:
                 json_str = match.group(1)
                 return content, json.loads(json_str)
             else:
-                # Если JSON блок не найден, но файл существует, возвращаем его контент и пустой граф
                 print(f"Предупреждение: JSON блок не найден в файле {filepath}. Возвращается пустой граф.")
                 return content, {}
     except FileNotFoundError:
         if is_log_file:
             print(f"Файл лога {filepath} не найден. Будет создан новый.")
-            return "", {"nodes": [], "relations": []} # LSG всегда имеет узлы и связи
+            return "", {"nodes": [], "relations": []}
         raise FileNotFoundError(f"Файл не найден: {filepath}")
     except json.JSONDecodeError:
         raise ValueError(f"Ошибка декодирования JSON в файле: {filepath}")
@@ -72,13 +84,10 @@ def save_graph(graph_data: dict, filepath: str, original_content: str = "") -> N
     if original_content and '```json' in original_content:
         updated_content, num_replacements = re.subn(r'```json\n(.*?)\n```', new_json_block, original_content, flags=re.DOTALL)
         if num_replacements == 0:
-             # Если блок был, но re.sub не сработал (редкий случай), добавляем в конец
              updated_content = original_content + '\n' + new_json_block
-    else: # Создание файла с нуля или добавление блока, если его не было
-        # Убираем старый блок, если он был, чтобы избежать дублирования
+    else: 
         original_content_no_block = re.sub(r'```json\n(.*?)\n```', '', original_content, flags=re.DOTALL).strip()
         updated_content = f"{original_content_no_block}\n\n{new_json_block}\n".strip()
-
 
     with open(filepath, 'w', encoding='utf-8') as f:
         f.write(updated_content)

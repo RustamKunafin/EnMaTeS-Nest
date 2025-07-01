@@ -7,7 +7,7 @@ Licensed under MODL v1.0. See LICENSE or https://cyberries.org/04_Resources/0440
 """
 import argparse
 import os
-from core.graph_io import load_graph, get_lsg_filepath
+from core.graph_io import load_graph, get_lsg_filepath, load_yaml_header
 from core.lsg_manager import TransactionManager
 from core.utils import create_backup
 from commands.batch_modifier import process_batch_recipe
@@ -46,6 +46,9 @@ def main():
     
     # --- Шаг 1: Подготовка ---
     original_content, graph_data = load_graph(args.file)
+    lsg_filepath = get_lsg_filepath(args.file)
+    yaml_header = load_yaml_header(original_content)
+    parent_sg_muid = yaml_header.get('muid', 'UNKNOWN_PARENT_SG')
 
     # --- Шаг 2: Бэкап (по умолчанию) ---
     if not args.no_backup:
@@ -56,8 +59,7 @@ def main():
         
     # --- Шаг 4: Коммит транзакции и сохранение ---
     if changeset:
-        lsg_filepath = get_lsg_filepath(args.file)
-        tm = TransactionManager(recipe_name, lsg_filepath, args.file)
+        tm = TransactionManager(recipe_name, lsg_filepath, args.file, parent_sg_muid)
         tm.add_changes(changeset)
         tm.commit_and_save(updated_graph, original_content)
         print(f"\nТранзакция успешно зафиксирована. Операция завершена для файла: {args.file}")
