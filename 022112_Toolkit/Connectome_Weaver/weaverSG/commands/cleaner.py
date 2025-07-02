@@ -1,62 +1,89 @@
+# -*- coding: utf-8 -*-
 """
-Обработчик команды 'cleanup-backups'. Отвечает за удаление временных бэкапов.
+cleaner.py
+
+This module implements the 'cleanup-backups' command for weaverSG.
+Its purpose is to find and safely delete timestamped backup files (*_backup_*.md)
+that are created by the LSGManager during save operations. It supports both
+interactive and automated (non-interactive) modes.
 
 Membra Open Development License (MODL) v1.0
 Copyright (c) Rustam Kunafin 2025. All rights reserved.
 Licensed under MODL v1.0. See LICENSE or https://cyberries.org/04_Resources/0440_Agreements/MODL.
 """
+
 import os
-import glob
-import re
+from pathlib import Path
+from typing import List
 
-def process_cleanup_backups(args):
+def find_backup_files(directory: Path) -> List[Path]:
     """
-    Находит и удаляет все временные страховочные бэкапы для указанного файла,
-    используя точное совпадение по шаблону.
+    Finds all weaverSG backup files in a given directory.
+
+    Backup files are identified by the pattern '*_backup_*.md'.
+
+    Args:
+        directory (Path): The directory to search in.
+
+    Returns:
+        A list of Path objects for all found backup files.
     """
-    sg_filepath = args.file
-    directory, filename_with_ext = os.path.split(sg_filepath)
-    filename, ext = os.path.splitext(filename_with_ext)
+    # The pattern matches any file ending with _backup_ followed by any characters
+    # and ending with .md. This is the standard backup format.
+    pattern = "*_backup_*.md"
+    return list(directory.glob(pattern))
 
-    # Шаблон для поиска всех потенциальных бэкапов
-    search_pattern = os.path.join(directory, f"{filename}.backup_*")
-    
-    # ИСПОЛЬЗУЕМ РЕГУЛЯРНОЕ ВЫРАЖЕНИЕ ДЛЯ ТОЧНОГО ПОИСКА
-    # Оно ищет файлы, которые точно соответствуют нашему формату:
-    # ИмяФайла.backup_имякоманды_ГГГГММДД_ЧЧММСС.md
-    backup_regex = re.compile(
-        re.escape(filename) + r"\.backup_[a-zA-Z-]+\_\d{8}_\d{6}" + re.escape(ext)
-    )
+def handle_cleanup(file_path: Path, auto_confirm: bool = False):
+    """
+    Handles the backup cleanup process for the directory of the given file.
 
-    print(f"Поиск временных бэкапов для '{filename_with_ext}'...")
-    
-    # Сначала находим всех кандидатов, потом фильтруем по точному шаблону
-    all_files = glob.glob(search_pattern)
-    backup_files_to_delete = [f for f in all_files if backup_regex.search(os.path.basename(f))]
-    
-    if not backup_files_to_delete:
-        print("Временные страховочные бэкапы для этого файла не найдены.")
-        return None, [], None
+    It finds all backup files, asks for user confirmation (unless auto_confirm
+    is True), and then deletes them.
 
-    print("\nНайдены следующие бэкапы для удаления:")
-    for f in backup_files_to_delete:
-        print(f"  - {os.path.basename(f)}")
-        
-    # Запрос подтверждения у пользователя
-    confirm = input("\nВы уверены, что хотите удалить эти файлы? (y/n): ").lower()
-    
-    if confirm == 'y':
-        deleted_count = 0
-        for f in backup_files_to_delete:
-            try:
-                os.remove(f)
-                print(f"Удален: {os.path.basename(f)}")
-                deleted_count += 1
-            except Exception as e:
-                print(f"Ошибка при удалении файла {f}: {e}")
-        print(f"\nОчистка завершена. Удалено файлов: {deleted_count}.")
+    Args:
+        file_path (Path): The path to the main SG file. The cleanup will be
+                          performed in the same directory.
+        auto_confirm (bool): If True, skips the interactive confirmation prompt.
+                             This is useful for automated scripts.
+    """
+    target_directory = file_path.parent
+    print(f"Searching for backup files in: {target_directory}")
+
+    backup_files = find_backup_files(target_directory)
+
+    if not backup_files:
+        print("No backup files found. Nothing to do.")
+        return
+
+    print("\nThe following backup files will be deleted:")
+    for bf in backup_files:
+        print(f"  - {bf.name}")
+
+    # If not in auto-confirm mode, ask the user for confirmation.
+    if not auto_confirm:
+        try:
+            confirm = input("\nAre you sure you want to permanently delete these files? (y/n): ").lower()
+        except KeyboardInterrupt:
+            print("\nOperation cancelled by user.")
+            return
+            
+        if confirm != 'y':
+            print("Cleanup cancelled by user.")
+            return
     else:
-        print("\nОперация отменена пользователем.")
+        print("\n'--yes' flag detected. Proceeding with automatic deletion.")
 
-    # Эта команда не возвращает данные для транзакции
-    return None, [], None
+    # Proceed with deletion
+    deleted_count = 0
+    error_count = 0
+    print("\nDeleting files...")
+    for bf in backup_files:
+        try:
+            bf.unlink()
+            print(f"  - Deleted: {bf.name}")
+            deleted_count += 1
+        except OSError as e:
+            print(f"  - Error deleting {bf.name}: {e}")
+            error_count += 1
+    
+    print(f"\nCleanup complete. {deleted_count} file(s) deleted, {error_count} error(s).")

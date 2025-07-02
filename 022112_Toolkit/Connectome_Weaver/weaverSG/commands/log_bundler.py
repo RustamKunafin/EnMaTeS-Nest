@@ -1,99 +1,125 @@
+# -*- coding: utf-8 -*-
 """
-Обработчики команд 'bundle-log' и 'detach-log'.
+log_bundler.py
+
+This module implements the 'bundle-log' and 'detach-log' commands for weaverSG.
+'bundle-log': Moves the content of the external LSG file into the main SG file
+              under the 'log_history' key.
+'detach-log': Extracts the 'log_history' from an SG file and saves it as a
+              separate, external LSG file.
 
 Membra Open Development License (MODL) v1.0
 Copyright (c) Rustam Kunafin 2025. All rights reserved.
 Licensed under MODL v1.0. See LICENSE or https://cyberries.org/04_Resources/0440_Agreements/MODL.
 """
+
 import os
-import glob
-from core.graph_io import get_lsg_filepath, load_graph, save_graph, load_yaml_header
-from core.lsg_manager import TransactionManager
+from pathlib import Path
 
-def process_bundle_log(args):
-    """Обрабатывает команду 'bundle-log'."""
-    sg_filepath = args.file
-    lsg_filepath = get_lsg_filepath(sg_filepath)
+from ..core.lsg_manager import LSGManager
+from ..core import graph_io
+from ..core import operations
+from ..core import utils
+
+# --- Bundle Log Command ---
+
+def _check_for_archives(directory: Path) -> bool:
+    """Checks if any log archive files exist in the directory."""
+    return any(directory.glob("*.archive_*.md"))
+
+def handle_bundle_log(file_path: Path):
+    """
+    Handles bundling the LSG content into the main SG file.
+
+    Args:
+        file_path (Path): The path to the main SG file.
+    """
+    print(f"Starting log bundling process for: {file_path}")
     
-    # Проверка на наличие архивных файлов
-    directory, filename = os.path.split(lsg_filepath)
-    base_name = filename.replace('_log.md', '')
-    archive_pattern = os.path.join(directory, f"{base_name}_log_archive_*.md")
-    if glob.glob(archive_pattern):
-        raise FileExistsError("Ошибка: Обнаружены архивные файлы логов. Упаковка невозможна. Для транспортировки используйте команду 'package-sg' (в будущем) или соберите все файлы вручную.")
+    try:
+        lsg_manager = LSGManager(file_path)
 
-    if not os.path.exists(lsg_filepath):
-        raise FileNotFoundError(f"Внешний лог-файл не найден: {lsg_filepath}. Упаковка невозможна.")
+        # --- Pre-flight checks for safety ---
+        if 'log_history' in lsg_manager.sg_data:
+            print("Error: Graph file already contains a bundled log ('log_history'). Cannot bundle.")
+            return
+        
+        if not lsg_manager.lsg_path.is_file():
+            print(f"Error: Log file not found at {lsg_manager.lsg_path}. Nothing to bundle.")
+            return
 
-    sg_original_content, sg_data = load_graph(sg_filepath)
-    if "log_history" in sg_data:
-        raise ValueError("Ошибка: Внутри графа уже есть упакованный лог.")
+        if _check_for_archives(file_path.parent):
+            print("Error: Log archive files found in the directory. Please handle them before bundling.")
+            return
 
-    lsg_original_content, lsg_data = load_graph(lsg_filepath, is_log_file=True)
+        # --- Operation ---
+        # 1. Add a final transaction to the in-memory log to record the bundle operation
+        changeset = [{"action": "log_bundled", "details": {"message": "Log was bundled into the parent SG."}}]
+        lsg_manager.record_transaction(changeset, recipe_id="bundle_log_operation")
+
+        # 2. Add the entire log history to the main SG data
+        lsg_manager.sg_data = operations.update_graph_properties(
+            lsg_manager.sg_data,
+            {"log_history": lsg_manager.lsg_data}
+        )
+        
+        # 3. Save the modified SG file (without the LSGManager, as it would create a backup)
+        graph_io.create_backup(lsg_manager.sg_path)
+        graph_io.save_graph_to_file(lsg_manager.sg_path, lsg_manager.sg_metadata, lsg_manager.sg_data)
+        print(f"Successfully saved bundled graph to: {lsg_manager.sg_path}")
+
+        # 4. Delete the now-redundant external LSG file
+        lsg_manager.lsg_path.unlink()
+        print(f"Successfully deleted external log file: {lsg_manager.lsg_path}")
+        
+    except Exception as e:
+        print(f"\nAn unexpected error occurred during bundling: {e}")
+
+# --- Detach Log Command ---
+
+def handle_detach_log(file_path: Path):
+    """
+    Handles detaching the bundled log from an SG file into an external LSG file.
+
+    Args:
+        file_path (Path): The path to the main SG file.
+    """
+    print(f"Starting log detachment process for: {file_path}")
     
-    print("Упаковка лога внутрь основного графа...")
-    
-    # Получаем метаданные родителя для корректной записи транзакции
-    yaml_header = load_yaml_header(sg_original_content)
-    parent_sg_muid = yaml_header.get('muid', 'UNKNOWN_PARENT_SG')
-    has_real_title = 'title' in yaml_header
-    filename_without_ext = os.path.splitext(os.path.basename(sg_filepath))[0]
-    parent_sg_title = yaml_header.get('title', filename_without_ext)
+    try:
+        lsg_manager = LSGManager(file_path)
+        
+        # --- Pre-flight checks ---
+        if 'log_history' not in lsg_manager.sg_data:
+            print("Error: No 'log_history' found in the graph file. Nothing to detach.")
+            return
+            
+        if lsg_manager.lsg_path.is_file():
+            print(f"Error: An external log file already exists at {lsg_manager.lsg_path}. Cannot detach.")
+            return
 
-    # Добавляем транзакцию об упаковке в сам лог ПЕРЕД его перемещением
-    tm = TransactionManager("bundle_log_operation", lsg_filepath, sg_filepath, parent_sg_muid, parent_sg_title, has_real_title)
-    bundle_change = {"action": "log_bundled", "details": {"message": "Log was bundled into the parent SG."}}
-    tm.add_changes([bundle_change])
-    
-    # Вручную вызываем внутренний метод для обновления данных лога в памяти
-    transaction_node = tm.create_transaction_node()
-    final_lsg_data = tm._get_updated_lsg_data(lsg_data, transaction_node)
-    
-    # Помещаем обновленный лог внутрь основного графа
-    sg_data["log_history"] = final_lsg_data
-    
-    # Сохраняем основной граф с упакованным логом
-    save_graph(sg_data, sg_filepath, sg_original_content)
-    
-    # Удаляем старый внешний файл лога
-    os.remove(lsg_filepath)
-    print(f"Внешний лог {lsg_filepath} удален.")
-    
-    # Возвращаем None, так как транзакция уже обработана вручную
-    return None, [], None
+        # --- Operation ---
+        # 1. Extract the log data
+        detached_log_data = lsg_manager.sg_data.pop('log_history')
+        
+        # 2. Create a new transaction to record the detachment
+        changeset = [{"action": "log_detached", "details": {"message": "Log was detached to an external file."}}]
+        transaction_muid = utils.generate_transaction_id()
+        transaction_node = {
+            "MUID": transaction_muid, "type": "Transaction",
+            "timestamp": utils.datetime.now().isoformat(),
+            "recipe_id": "detach_log_operation", "changeset": changeset
+        }
+        detached_log_data = operations.add_node(detached_log_data, transaction_node)
+        
+        # 3. Save the detached log to a new external LSG file
+        lsg_metadata = {"title": f"Log for {file_path.name}"} # Basic metadata
+        graph_io.save_graph_to_file(lsg_manager.lsg_path, lsg_metadata, detached_log_data)
+        print(f"Successfully created external log file: {lsg_manager.lsg_path}")
 
+        # 4. Save the main SG file (now without the log_history)
+        lsg_manager.save_changes() # Use the manager to handle backup and save
+        print(f"Successfully saved main graph without bundled log to: {file_path}")
 
-def process_detach_log(args):
-    """Обрабатывает команду 'detach-log'."""
-    sg_filepath = args.file
-    lsg_filepath = get_lsg_filepath(sg_filepath)
-
-    if os.path.exists(lsg_filepath):
-        raise FileExistsError(f"Внешний лог-файл уже существует: {lsg_filepath}. Распаковка невозможна.")
-
-    sg_original_content, sg_data = load_graph(sg_filepath)
-    if "log_history" not in sg_data:
-        raise ValueError("Ошибка: Внутри графа не найден упакованный лог.")
-
-    print("Распаковка внутреннего лога во внешний файл...")
-    lsg_data = sg_data.pop("log_history")
-
-    # Получаем метаданные родителя для корректной записи транзакции
-    yaml_header = load_yaml_header(sg_original_content)
-    parent_sg_muid = yaml_header.get('muid', 'UNKNOWN_PARENT_SG')
-    has_real_title = 'title' in yaml_header
-    filename_without_ext = os.path.splitext(os.path.basename(sg_filepath))[0]
-    parent_sg_title = yaml_header.get('title', filename_without_ext)
-
-    # Добавляем транзакцию о распаковке
-    tm = TransactionManager("detach_log_operation", lsg_filepath, sg_filepath, parent_sg_muid, parent_sg_title, has_real_title)
-    detach_change = {"action": "log_detached", "details": {"message": "Log was detached into an external file."}}
-    tm.add_changes([detach_change])
-    
-    tm.commit_and_save(final_graph_data=lsg_data, original_sg_content="", is_log_only=True)
-
-    # Сохраняем основной граф уже без лога
-    save_graph(sg_data, sg_filepath, sg_original_content)
-    print("Внутренний лог успешно распакован.")
-
-    return None, [], None
+    except Exception as e:
+        print(f"\nAn unexpected error occurred during detachment: {e}")

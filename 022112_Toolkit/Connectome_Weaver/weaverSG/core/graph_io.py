@@ -1,93 +1,184 @@
+# -*- coding: utf-8 -*-
 """
-Модуль для низкоуровневых операций ввода/вывода: загрузка и сохранение семантических графов (SG и LSG).
+graph_io.py
+
+Core module for handling low-level input/output operations for Semantic Graphs (SG).
+This module is responsible for:
+- Loading graph data from .md files.
+- Parsing YAML frontmatter and JSON graph content.
+- Saving graph data back to .md files.
+- Creating backups of graph files before modification.
+
+This version incorporates robust error handling, type hinting,
+and uses the pathlib library for modern path management.
 
 Membra Open Development License (MODL) v1.0
 Copyright (c) Rustam Kunafin 2025. All rights reserved.
 Licensed under MODL v1.0. See LICENSE or https://cyberries.org/04_Resources/0440_Agreements/MODL.
 """
+
 import json
 import re
-import os
+import shutil
 import yaml
+from datetime import datetime
+from pathlib import Path
+from typing import Dict, Any, Tuple
 
-def get_lsg_filepath(sg_filepath: str) -> str:
-    """
-    Генерирует путь к файлу лога (LSG) на основе пути к основному графу (SG).
-    """
-    directory, filename_with_ext = os.path.split(sg_filepath)
-    filename, ext = os.path.splitext(filename_with_ext)
-    lsg_filename = f"{filename}_log.md"
-    return os.path.join(directory, lsg_filename)
+# --- Custom Exceptions for Clearer Error Reporting ---
 
-def load_yaml_header(content: str) -> dict:
-    """Извлекает и парсит YAML-шапку из текстового содержимого."""
+class GraphFileError(Exception):
+    """Base exception for errors in this module."""
+    pass
+
+class GraphFileNotFoundError(GraphFileError):
+    """Raised when the graph file does not exist."""
+    pass
+
+class GraphFileParseError(GraphFileError):
+    """Raised when the file content cannot be parsed (e.g., malformed YAML or JSON)."""
+    pass
+
+class GraphFileSaveError(GraphFileError):
+    """Raised during the file saving process."""
+    pass
+
+
+def load_graph_from_file(file_path: Path) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    """
+    Loads a Semantic Graph from a specified .md file.
+
+    The file is expected to have a YAML frontmatter section and a JSON content block.
+
+    Args:
+        file_path (Path): The path to the .md file.
+
+    Returns:
+        A tuple containing two dictionaries:
+        - The first is the parsed YAML metadata.
+        - The second is the parsed JSON graph data.
+
+    Raises:
+        GraphFileNotFoundError: If the file does not exist at the given path.
+        GraphFileParseError: If the file content is malformed and cannot be parsed.
+    """
+    if not file_path.is_file():
+        raise GraphFileNotFoundError(f"Graph file not found at: {file_path}")
+
     try:
-        match = re.search(r'^---\n(.*?)\n---', content, re.DOTALL)
-        if match:
-            yaml_str = match.group(1)
-            return yaml.safe_load(yaml_str)
-        return {}
-    except yaml.YAMLError as e:
-        print(f"Предупреждение: Ошибка парсинга YAML-шапки: {e}")
-        return {}
-
-def load_graph(filepath: str, is_log_file=False) -> tuple[str, dict]:
-    """
-    Загружает данные графа (SG или LSG) из markdown-файла.
-    Возвращает кортеж (полное_содержимое_файла, данные_графа).
-    В случае с LSG, если файл не найден, возвращает пустую структуру.
-    """
-    print(f"Загрузка графа из {filepath}...")
-    try:
-        with open(filepath, 'r', encoding='utf-8') as f:
+        with file_path.open('r', encoding='utf-8') as f:
             content = f.read()
-            match = re.search(r'```json\n(.*?)\n```', content, re.DOTALL)
-            if match:
-                json_str = match.group(1)
-                return content, json.loads(json_str)
-            else:
-                print(f"Предупреждение: JSON блок не найден в файле {filepath}. Возвращается пустой граф.")
-                return content, {}
-    except FileNotFoundError:
-        if is_log_file:
-            print(f"Файл лога {filepath} не найден. Будет создан новый.")
-            return "", {"nodes": [], "relations": []}
-        raise FileNotFoundError(f"Файл не найден: {filepath}")
-    except json.JSONDecodeError:
-        raise ValueError(f"Ошибка декодирования JSON в файле: {filepath}")
 
-def save_graph(graph_data: dict, filepath: str, original_content: str = "") -> None:
+        # Split the content into YAML frontmatter and the rest
+        parts = content.split('---', 2)
+        if len(parts) < 3:
+            raise GraphFileParseError("File does not contain a valid YAML frontmatter section.")
+
+        yaml_content = parts[1]
+        rest_of_content = parts[2]
+
+        # Parse YAML metadata
+        metadata = yaml.safe_load(yaml_content)
+        if not isinstance(metadata, dict):
+            raise GraphFileParseError("Failed to parse YAML metadata or it is not a dictionary.")
+
+        # Find and parse the JSON block
+        json_match = re.search(r'```json\s*\n(.*?)\n```', rest_of_content, re.DOTALL)
+        if not json_match:
+            raise GraphFileParseError("Could not find a ```json ... ``` block in the file.")
+
+        json_content = json_match.group(1)
+        graph_data = json.loads(json_content)
+        if not isinstance(graph_data, dict):
+            raise GraphFileParseError("Failed to parse JSON graph data or it is not a dictionary.")
+
+        return metadata, graph_data
+
+    except yaml.YAMLError as e:
+        raise GraphFileParseError(f"Error parsing YAML frontmatter: {e}") from e
+    except json.JSONDecodeError as e:
+        raise GraphFileParseError(f"Error parsing JSON graph data: {e}") from e
+    except Exception as e:
+        # Catch-all for other unexpected errors during file processing
+        raise GraphFileParseError(f"An unexpected error occurred while loading the graph: {e}") from e
+
+
+def save_graph_to_file(file_path: Path, metadata: Dict[str, Any], graph_data: Dict[str, Any]) -> None:
     """
-    Сохраняет данные графа обратно в markdown-файл с канонической сортировкой.
+    Saves the Semantic Graph data to a specified .md file.
+
+    This function serializes the metadata to YAML and the graph data to JSON,
+    then writes them into the file in the standard format.
+
+    Args:
+        file_path (Path): The path to the target .md file.
+        metadata (Dict[str, Any]): The dictionary containing the graph's metadata.
+        graph_data (Dict[str, Any]): The dictionary containing the graph's nodes and relations.
+
+    Raises:
+        GraphFileSaveError: If an error occurs during the file writing process.
     """
-    print(f"Сохранение графа в {filepath}...")
-    
-    # Каноническая сортировка для консистентности
-    if 'nodes' in graph_data:
-      graph_data['nodes'] = sorted(graph_data['nodes'], key=lambda x: x.get('MUID', ''))
-    if 'relations' in graph_data:
-      graph_data['relations'] = sorted(graph_data['relations'], key=lambda x: (x.get('MUID', x.get('LID', ''))))
-    
-    # Сортировка ключей внутри каждого объекта
-    def sort_keys_recursive(obj):
-        if isinstance(obj, dict):
-            return {k: sort_keys_recursive(v) for k, v in sorted(obj.items())}
-        if isinstance(obj, list):
-            return [sort_keys_recursive(i) for i in obj]
-        return obj
+    try:
+        # Serialize metadata to a YAML string
+        # allow_unicode=True preserves non-ASCII characters.
+        # sort_keys=False preserves the original order of keys in the metadata.
+        yaml_string = yaml.dump(metadata, allow_unicode=True, sort_keys=False, default_flow_style=False)
 
-    sorted_graph_data = sort_keys_recursive(graph_data)
+        # Serialize graph data to a formatted JSON string
+        # indent=2 makes the JSON human-readable.
+        # ensure_ascii=False preserves non-ASCII characters.
+        json_string = json.dumps(graph_data, indent=2, ensure_ascii=False)
 
-    pretty_json = json.dumps(sorted_graph_data, indent=2, ensure_ascii=False)
-    new_json_block = f"```json\n{pretty_json}\n```"
-    
-    if original_content and '```json' in original_content:
-        updated_content, num_replacements = re.subn(r'```json\n(.*?)\n```', new_json_block, original_content, flags=re.DOTALL)
-        if num_replacements == 0:
-             updated_content = original_content + '\n' + new_json_block
-    else: 
-        original_content_no_block = re.sub(r'```json\n(.*?)\n```', '', original_content, flags=re.DOTALL).strip()
-        updated_content = f"{original_content_no_block}\n\n{new_json_block}\n".strip()
+        # Assemble the full file content
+        file_content = (
+            f"---\n"
+            f"{yaml_string}"
+            f"---\n\n"
+            f"```json\n"
+            f"{json_string}\n"
+            f"```\n"
+        )
 
-    with open(filepath, 'w', encoding='utf-8') as f:
-        f.write(updated_content)
+        # Write the content to the file
+        with file_path.open('w', encoding='utf-8') as f:
+            f.write(file_content)
+
+    except (yaml.YAMLError, TypeError) as e:
+        raise GraphFileSaveError(f"Error serializing data to YAML or JSON: {e}") from e
+    except IOError as e:
+        raise GraphFileSaveError(f"Error writing to file at {file_path}: {e}") from e
+    except Exception as e:
+        raise GraphFileSaveError(f"An unexpected error occurred while saving the graph: {e}") from e
+
+
+def create_backup(file_path: Path) -> Path:
+    """
+    Creates a timestamped backup of the given file.
+
+    The backup is created in the same directory as the original file.
+
+    Args:
+        file_path (Path): The path to the file to be backed up.
+
+    Returns:
+        Path: The path to the newly created backup file.
+
+    Raises:
+        GraphFileNotFoundError: If the source file does not exist.
+        GraphFileError: If the backup operation fails.
+    """
+    if not file_path.is_file():
+        raise GraphFileNotFoundError(f"Cannot create backup. Source file not found: {file_path}")
+
+    try:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup_filename = f"{file_path.stem}_backup_{timestamp}{file_path.suffix}"
+        backup_path = file_path.parent / backup_filename
+
+        shutil.copy2(file_path, backup_path)
+        
+        print(f"Created backup: {backup_path}")
+        return backup_path
+    except Exception as e:
+        raise GraphFileError(f"Failed to create backup for {file_path}: {e}") from e
+

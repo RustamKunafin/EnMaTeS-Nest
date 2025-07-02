@@ -1,115 +1,158 @@
+# -*- coding: utf-8 -*-
 """
-Менеджер транзакций. Отвечает за создание, управление и запись транзакций в Log Semantic Graph (LSG).
+lsg_manager.py
+
+This module defines the LSGManager class, the core engine for handling
+transactional operations between a Semantic Graph (SG) and its corresponding
+Log Semantic Graph (LSG). It ensures that every change is recorded reliably.
 
 Membra Open Development License (MODL) v1.0
 Copyright (c) Rustam Kunafin 2025. All rights reserved.
 Licensed under MODL v1.0. See LICENSE or https://cyberries.org/04_Resources/0440_Agreements/MODL.
 """
-from datetime import datetime
-from .graph_io import load_graph, save_graph
-import os
-import yaml
-import uuid
 
-class TransactionManager:
+from pathlib import Path
+from typing import Dict, Any, List, Optional, Tuple
+
+# Import revised core modules
+from . import graph_io
+from . import operations
+from . import utils
+
+class LSGManager:
     """
-    Управляет созданием и записью транзакций, а также сохранением основного графа.
+    Manages all transactional operations for a Semantic Graph and its Log.
+
+    This class encapsulates the logic for loading SG and LSG files,
+    recording changes as transactions in the LSG, and saving both files safely.
     """
-    def __init__(self, recipe_name: str, lsg_filepath: str, sg_filepath: str, parent_sg_muid: str, parent_sg_title: str, has_real_title: bool):
-        self.recipe_name = recipe_name
-        self.lsg_filepath = lsg_filepath
-        self.sg_filepath = sg_filepath
-        self.parent_sg_muid = parent_sg_muid
-        self.parent_sg_title = parent_sg_title
-        self.has_real_title = has_real_title
-        self.changeset = []
 
-    def add_changes(self, change_records: list):
-        """Добавляет записи об изменениях в текущую транзакцию."""
-        if change_records:
-            self.changeset.extend(change_records)
-            
-    def _get_transaction_id(self) -> str:
-        """Генерирует уникальный ID для транзакции."""
-        timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
-        random_part = os.urandom(4).hex()
-        return f"t_{timestamp}_{random_part}"
+    def __init__(self, sg_path: Path):
+        """
+        Initializes the manager for a given Semantic Graph file.
 
-    def create_transaction_node(self) -> dict:
-        """Создает узел транзакции на основе текущего changeset."""
-        return {
-            "MUID": self._get_transaction_id(),
-            "type": "Transaction",
-            "timestamp": datetime.now().isoformat(),
-            "recipe_id": self.recipe_name,
-            "changeset": self.changeset
+        Args:
+            sg_path (Path): The path to the main SG file.
+
+        Raises:
+            graph_io.GraphFileNotFoundError: If the main SG file does not exist.
+        """
+        self.sg_path = sg_path
+        self.lsg_path = self._get_lsg_path_for_sg(sg_path)
+
+        # Load main graph data
+        self.sg_metadata, self.sg_data = graph_io.load_graph_from_file(self.sg_path)
+
+        # Load or initialize log graph data
+        try:
+            self.lsg_metadata, self.lsg_data = graph_io.load_graph_from_file(self.lsg_path)
+        except graph_io.GraphFileNotFoundError:
+            print(f"Log file not found at {self.lsg_path}. A new one will be created.")
+            self.lsg_metadata, self.lsg_data = self._initialize_lsg()
+
+    def _get_lsg_path_for_sg(self, sg_path: Path) -> Path:
+        """Determines the conventional path for the LSG file."""
+        return sg_path.with_name(f"LSG_{sg_path.name}")
+
+    def _initialize_lsg(self) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+        """Creates the basic structure for a new, empty LSG."""
+        metadata = {
+            'title': f"Log for {self.sg_path.name}",
+            'graph_version': "1.0",
+            'description': "Transactional log for a Semantic Graph."
         }
+        data = {
+            'nodes': [],
+            'relations': []
+        }
+        return metadata, data
 
-    def _get_updated_lsg_data(self, lsg_data: dict, transaction_node: dict) -> dict:
+    def _find_or_create_history_anchor(self, entity_id: str, entity_type: str) -> str:
         """
-        Чистая функция для обновления данных лога в памяти. Не читает и не пишет файлы.
-        Возвращает обновленные данные лога.
+        Finds an existing HistoryAnchor for an entity or creates a new one.
+
+        Args:
+            entity_id (str): The ID of the entity (e.g., MUID or 'graph_meta').
+            entity_type (str): The type of the entity (e.g., 'node', 'graph').
+
+        Returns:
+            The MUID of the found or created HistoryAnchor node.
         """
-        # 1. Добавить узел транзакции
-        lsg_data.setdefault("nodes", []).append(transaction_node)
+        # Search for an existing anchor
+        for node in self.lsg_data.get('nodes', []):
+            if node.get('type') == 'HistoryAnchor' and node.get('entity_ID') == entity_id:
+                return node['MUID']
         
-        # 2. Обновить якоря истории
-        for change in self.changeset:
-            entity_id = change.get("entity_id")
-            entity_type = change.get("entity_type")
-            if not entity_id or not entity_type: continue
-                
-            haid = f"ha_{entity_id}"
-            anchor = next((a for a in lsg_data.get("nodes", []) if a.get("MUID") == haid), None)
-            if not anchor:
-                anchor = { "MUID": haid, "entity_ID": entity_id, "type": "HistoryAnchor", "entity_type": entity_type }
-                lsg_data.setdefault("nodes", []).append(anchor)
+        # If not found, create a new one
+        anchor_muid = f"ha_{entity_id.replace('-', '_')}"
+        anchor_node = {
+            "MUID": anchor_muid,
+            "type": "HistoryAnchor",
+            "entity_ID": entity_id,
+            "entity_type": entity_type
+        }
+        self.lsg_data = operations.add_node(self.lsg_data, anchor_node)
+        print(f"Created new History Anchor: {anchor_muid}")
+        return anchor_muid
 
-            relation = {
-                "class": "link",
-                "LID": f"l_{haid}_to_{transaction_node['MUID']}",
-                "from_MUID": haid,
-                "to_MUID": transaction_node["MUID"],
-                "type": "includes_change"
-            }
-            lsg_data.setdefault("relations", []).append(relation)
-        
-        return lsg_data
+    def record_transaction(self, changeset: List[Dict[str, Any]], recipe_id: str) -> None:
+        """
+        Creates and records a new transaction in the LSG.
 
-    def commit_and_save(self, final_graph_data: dict, original_sg_content: str):
+        Args:
+            changeset (List[Dict[str, Any]]): A list of change objects describing the operation.
+            recipe_id (str): An identifier for the operation/command being performed.
         """
-        Основной транзакционный метод для стандартных операций (validate, batch-modify).
-        """
-        if not self.changeset:
-            print("Нет изменений для записи в лог.")
-            # Важно: если изменений нет, но была валидация, основной граф все равно нужно сохранить,
-            # так как в него мог быть добавлен блок validation_issues.
-            save_graph(final_graph_data, self.sg_filepath, original_sg_content)
+        if not changeset:
+            print("No changes to record. Skipping transaction.")
             return
 
-        transaction_node = self.create_transaction_node()
-        
-        print(f"\nКоммит транзакции {transaction_node['MUID']}...")
-        
-        # Шаг 1: Загрузить, обновить и сохранить лог
-        lsg_original_content, lsg_data = load_graph(self.lsg_filepath, is_log_file=True)
+        transaction_muid = utils.generate_transaction_id()
+        timestamp = utils.datetime.now().isoformat()
 
-        if not lsg_original_content:
-            title_to_display = f'"{self.parent_sg_title}"' if self.has_real_title else self.parent_sg_title
-            new_description = f"Транзакционный лог для Семантического Графа {title_to_display} (MUID: {self.parent_sg_muid})."
-            new_title = f"Log for {title_to_display}"
-            header_data = {
-                'yamlTemplate': 'membraLog', 'muid': str(uuid.uuid4()), 'title': new_title,
-                'parent_SG_MUID': self.parent_sg_muid, 'lsg_version': "1.0",
-                'description': new_description, 'tags': ['LSG', 'Log', 'Transaction', 'EnMaTeS'], 'publish': False
-            }
-            yaml_header = yaml.dump(header_data, sort_keys=False, allow_unicode=True)
-            lsg_original_content = f"---\n{yaml_header}---\n"
+        transaction_node = {
+            "MUID": transaction_muid,
+            "type": "Transaction",
+            "timestamp": timestamp,
+            "recipe_id": recipe_id,
+            "changeset": changeset
+        }
         
-        updated_lsg_data = self._get_updated_lsg_data(lsg_data, transaction_node)
-        save_graph(updated_lsg_data, self.lsg_filepath, lsg_original_content)
-        print("Транзакция успешно записана в лог.")
+        # Add the transaction node to the log
+        self.lsg_data = operations.add_node(self.lsg_data, transaction_node)
+
+        # For simplicity, we currently link all transactions to a single graph-level anchor.
+        # This can be expanded to link to entity-specific anchors if needed.
+        # The first change's entity is used to find the anchor.
+        first_change = changeset[0]
+        entity_id = first_change.get('entity_id', 'graph_meta')
+        entity_type = first_change.get('entity_type', 'graph')
         
-        # Шаг 2: Сохранить основной граф
-        save_graph(final_graph_data, self.sg_filepath, original_sg_content)
-        print(f"Основной граф сохранен в {self.sg_filepath}.")
+        anchor_muid = self._find_or_create_history_anchor(entity_id, entity_type)
+
+        # Create a relation from the anchor to the new transaction
+        relation = {
+            "LID": utils.generate_lid(),
+            "from_MUID": anchor_muid,
+            "to_MUID": transaction_muid,
+            "type": "includes_change",
+            "class": "link"
+        }
+        self.lsg_data = operations.add_relation(self.lsg_data, relation)
+        print(f"Recorded transaction {transaction_muid} linked to anchor {anchor_muid}.")
+
+    def save_changes(self) -> None:
+        """
+        Saves all changes to the SG and LSG files, after creating a backup.
+        """
+        print("Saving changes...")
+        # 1. Create a backup of the original SG file before overwriting
+        graph_io.create_backup(self.sg_path)
+
+        # 2. Save the (potentially modified) main SG file
+        graph_io.save_graph_to_file(self.sg_path, self.sg_metadata, self.sg_data)
+        print(f"Successfully saved main graph to: {self.sg_path}")
+
+        # 3. Save the updated LSG file
+        graph_io.save_graph_to_file(self.lsg_path, self.lsg_metadata, self.lsg_data)
+        print(f"Successfully saved log graph to: {self.lsg_path}")

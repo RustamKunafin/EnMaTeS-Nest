@@ -1,227 +1,208 @@
+# -*- coding: utf-8 -*-
 """
-Ядро системы. Содержит атомарные функции-операции для манипуляции данными графа в памяти.
+operations.py
+
+This module provides a set of atomic, in-memory operations for manipulating
+the data of a Semantic Graph (SG). Each function takes the graph data as input,
+performs a single, specific modification, and returns the modified graph data.
+
+This approach ensures that data flow is explicit and predictable. All functions
+include robust error checking to prevent common issues like modifying non-existent
+entities.
 
 Membra Open Development License (MODL) v1.0
 Copyright (c) Rustam Kunafin 2025. All rights reserved.
 Licensed under MODL v1.0. See LICENSE or https://cyberries.org/04_Resources/0440_Agreements/MODL.
 """
-import uuid
-from datetime import datetime
-import os
-from collections import Counter
 
-# --- Вспомогательные функции ---
+from typing import Dict, Any, List, Optional
 
-def _is_uuid(value: str) -> bool:
-    """Проверяет, является ли строка валидным UUID."""
-    try:
-        uuid.UUID(str(value))
-        return True
-    except (ValueError, TypeError):
-        return False
+# --- Custom Exceptions for Operation Failures ---
 
-CONDITIONS = {"is_not_uuid": lambda node: not _is_uuid(node.get("MUID"))}
+class OperationError(Exception):
+    """Base exception for errors during graph operations."""
+    pass
 
-def _generate_lid() -> str:
-    """Генерирует легковесный, локально-уникальный ID для link."""
-    timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
-    random_part = os.urandom(2).hex() # 4 hex-символа
-    return f"l_{timestamp}_{random_part}"
+class NodeNotFoundError(OperationError):
+    """Raised when an operation targets a node that does not exist."""
+    pass
 
-# --- Функции валидации (только возвращают данные) ---
+class RelationNotFoundError(OperationError):
+    """Raised when an operation targets a relation that does not exist."""
+    pass
 
-def find_dangling_relations(graph_data: dict) -> list:
-    """Возвращает список 'висячих' связей."""
-    nodes_muids = {node['MUID'] for node in graph_data.get('nodes', [])}
-    dangling_relations = []
+class DuplicateNodeError(OperationError):
+    """Raised when attempting to add a node with an MUID that already exists."""
+    pass
 
-    for relation in graph_data.get('relations', []):
-        from_muid = relation.get('from_MUID')
-        to_muid = relation.get('to_MUID')
-        
-        if from_muid and from_muid not in nodes_muids:
-            dangling_relations.append({
-                "issue_type": "dangling_relation_from",
-                "relation_id": relation.get('MUID', relation.get('LID')),
-                "from_MUID": from_muid,
-                "missing_MUID": from_muid
-            })
-        if to_muid and to_muid not in nodes_muids:
-            dangling_relations.append({
-                "issue_type": "dangling_relation_to",
-                "relation_id": relation.get('MUID', relation.get('LID')),
-                "from_MUID": from_muid,
-                "missing_MUID": to_muid
-            })
-    return dangling_relations
+# --- Internal Helper Functions ---
 
-def find_duplicate_nodes(graph_data: dict) -> dict:
-    """Возвращает словарь дублирующихся узлов (по MUID) и их количество."""
-    muids = [node['MUID'] for node in graph_data.get('nodes', []) if 'MUID' in node]
-    muid_counts = Counter(muids)
-    return {muid: count for muid, count in muid_counts.items() if count > 1}
+def _find_node_index(graph_data: Dict[str, Any], muid: str) -> Optional[int]:
+    """Finds the index of a node by its MUID."""
+    for i, node in enumerate(graph_data.get('nodes', [])):
+        if node.get('MUID') == muid:
+            return i
+    return None
 
-def find_duplicate_relations(graph_data: dict) -> list:
-    """Находит дублирующиеся связи."""
-    signatures = []
-    for rel in graph_data.get('relations', []):
-        signature = (
-            rel.get('from_MUID'),
-            rel.get('to_MUID'),
-            rel.get('class'),
-            rel.get('type')
-        )
-        signatures.append(signature)
+def _find_relation_index(graph_data: Dict[str, Any], lid: str) -> Optional[int]:
+    """Finds the index of a relation by its LID."""
+    for i, relation in enumerate(graph_data.get('relations', [])):
+        if relation.get('LID') == lid:
+            return i
+    return None
+
+# --- Node Operations ---
+
+def add_node(graph_data: Dict[str, Any], node_data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Adds a new node to the graph.
+
+    Args:
+        graph_data: The dictionary representing the graph.
+        node_data: A dictionary containing the data for the new node. Must include 'MUID'.
+
+    Returns:
+        The modified graph_data dictionary.
+
+    Raises:
+        DuplicateNodeError: If a node with the same MUID already exists.
+        OperationError: If node_data is missing 'MUID' or graph_data is malformed.
+    """
+    if 'MUID' not in node_data:
+        raise OperationError("Cannot add node: 'MUID' is a required field.")
     
-    signature_counts = Counter(signatures)
-    duplicates = []
-    for sig, count in signature_counts.items():
-        if count > 1:
-            duplicates.append({
-                "issue_type": "duplicate_relation",
-                "count": count,
-                "from_MUID": sig[0],
-                "to_MUID": sig[1],
-                "class": sig[2],
-                "type": sig[3]
-            })
-    return duplicates
+    muid = node_data['MUID']
+    if _find_node_index(graph_data, muid) is not None:
+        raise DuplicateNodeError(f"Node with MUID '{muid}' already exists.")
 
-VALIDATION_CHECKS = {
-    'dangling_relations': find_dangling_relations,
-    'duplicate_nodes': find_duplicate_nodes,
-    'duplicate_relations': find_duplicate_relations,
-}
+    if 'nodes' not in graph_data:
+        graph_data['nodes'] = []
+        
+    graph_data['nodes'].append(node_data)
+    return graph_data
 
-# --- Функции-операции (модифицирующие) ---
+def update_node(graph_data: Dict[str, Any], muid: str, updates: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Updates an existing node with new data.
 
-def add_node(graph_data: dict, params: dict) -> tuple[dict, dict | None]:
-    node_data = params['node_data'].copy()
-    muid = node_data.get('MUID')
-    if any(node.get('MUID') == muid for node in graph_data.get('nodes', [])):
-        print(f"Предупреждение: Узел с MUID {muid} уже существует. Пропускаем.")
-        return graph_data, None
-    graph_data.setdefault('nodes', []).append(node_data)
-    change_record = {"action": "add_node", "entity_id": muid, "entity_type": "node", "new_state": node_data}
-    print(f"Узел с MUID {muid} успешно добавлен.")
-    return graph_data, change_record
+    Args:
+        graph_data: The dictionary representing the graph.
+        muid: The MUID of the node to update.
+        updates: A dictionary of fields to add or update in the node.
 
-def add_relation(graph_data: dict, params: dict) -> tuple[dict, dict]:
-    relation_data = params['relation_data'].copy()
-    relation_class = relation_data.get('class', 'link')
-    relation_data['class'] = relation_class
-    entity_id = None
-    if relation_class == 'link':
-        relation_data.setdefault('LID', _generate_lid())
-        entity_id = relation_data['LID']
-    elif relation_class == 'bind':
-        if 'MUID' not in relation_data:
-            raise ValueError("Для связи с class: 'bind' необходимо явно указать MUID.")
-        entity_id = relation_data['MUID']
-    graph_data.setdefault('relations', []).append(relation_data)
-    change_record = {"action": "add_relation", "entity_id": entity_id, "entity_type": "relation", "new_state": relation_data}
-    print(f"Операция: Добавление связи ({relation_class}) от {relation_data.get('from_MUID')} к {relation_data.get('to_MUID')}")
-    return graph_data, change_record
+    Returns:
+        The modified graph_data dictionary.
 
-def update_relation(graph_data: dict, params: dict) -> tuple[dict, dict | None]:
-    identity, updates = params['identity'], params['updates']
-    relation_to_update = next((rel for rel in graph_data.get('relations', []) if all(rel.get(k) == v for k, v in identity.items())), None)
-    if not relation_to_update:
-        print(f"Предупреждение: не найдено связей для обновления по {identity}.")
-        return graph_data, None
-    old_state = relation_to_update.copy()
-    relation_to_update.update(updates)
-    entity_id = relation_to_update.get("MUID") or relation_to_update.get("LID")
-    change_record = {"action": "update_relation", "entity_id": entity_id, "entity_type": "relation", "old_state": old_state, "new_state": relation_to_update.copy()}
-    print(f"Связь с ID '{entity_id}' успешно обновлена.")
-    return graph_data, change_record
+    Raises:
+        NodeNotFoundError: If no node with the given MUID is found.
+    """
+    node_index = _find_node_index(graph_data, muid)
+    if node_index is None:
+        raise NodeNotFoundError(f"Node with MUID '{muid}' not found for update.")
+    
+    graph_data['nodes'][node_index].update(updates)
+    return graph_data
 
-def promote_relation_op(graph_data: dict, params: dict) -> tuple[dict, dict]:
-    lid_to_promote = params['lid']
-    relation_found = next((rel for rel in graph_data.get('relations', []) if rel.get('LID') == lid_to_promote), None)
-    if not relation_found:
-        raise ValueError(f"Связь с LID '{lid_to_promote}' не найдена.")
-    if relation_found.get('class') != 'link':
-        raise ValueError(f"Связь с LID '{lid_to_promote}' уже не является 'link'.")
-    old_state = relation_found.copy()
-    new_muid = str(uuid.uuid4())
-    relation_found['class'] = 'bind'
-    relation_found['MUID'] = new_muid
-    relation_found['legacy_LID'] = relation_found.pop('LID')
-    change_record = {"action": "promote_relation", "entity_id": new_muid, "entity_type": "relation", "details": {"from_LID": lid_to_promote}, "old_state": old_state, "new_state": relation_found.copy()}
-    print(f"Операция: Продвижение LID '{lid_to_promote}' до MUID '{new_muid}'")
-    return graph_data, change_record
+def delete_node(graph_data: Dict[str, Any], muid: str) -> Dict[str, Any]:
+    """
+    Deletes a node from the graph.
 
-def add_node_field(graph_data: dict, params: dict) -> tuple[dict, list]:
-    field_name, default_value = params['field_name'], params.get('default_value')
-    changeset = []
-    print(f"Операция: Добавление поля '{field_name}'...")
-    for node in graph_data.get('nodes', []):
-        if field_name not in node:
-            old_state = node.copy()
-            node[field_name] = default_value
-            changeset.append({"action": "add_node_field", "entity_id": node['MUID'], "entity_type": "node", "details": {"field_name": field_name}, "old_state": old_state, "new_state": node.copy()})
-    print(f"Поле '{field_name}' добавлено/проверено для {len(graph_data.get('nodes', []))} узлов.")
-    return graph_data, changeset
+    Args:
+        graph_data: The dictionary representing the graph.
+        muid: The MUID of the node to delete.
 
-def copy_field(graph_data: dict, params: dict) -> tuple[dict, list]:
-    source_field, target_field = params['source_field'], params['target_field']
-    condition_name = params.get('where', {}).get('condition')
-    changeset = []
-    print(f"Операция: Копирование из '{source_field}' в '{target_field}'...")
-    if not condition_name or condition_name not in CONDITIONS:
-        raise ValueError(f"Неизвестное или не указанное условие: {condition_name}")
-    condition_func = CONDITIONS[condition_name]
-    for node in graph_data.get('nodes', []):
-        if condition_func(node) and source_field in node:
-            old_state = node.copy()
-            node[target_field] = node[source_field]
-            changeset.append({"action": "copy_field", "entity_id": node['MUID'], "entity_type": "node", "details": {"source": source_field, "target": target_field}, "old_state": old_state, "new_state": node.copy()})
-    print(f"Поле скопировано для {len(changeset)} узлов.")
-    return graph_data, changeset
+    Returns:
+        The modified graph_data dictionary.
 
-def set_field_from_generated_uuid(graph_data: dict, params: dict) -> tuple[dict, list]:
-    target_field = params['target_field']
-    condition_name = params.get('where', {}).get('condition')
-    changeset = []
-    print(f"Операция: Генерация UUID для поля '{target_field}'...")
-    if not condition_name or condition_name not in CONDITIONS:
-        raise ValueError(f"Неизвестное или не указанное условие: {condition_name}")
-    condition_func = CONDITIONS[condition_name]
-    for node in graph_data.get('nodes', []):
-        if condition_func(node):
-            old_state = node.copy()
-            new_muid = str(uuid.uuid4())
-            old_muid = node.get('MUID')
-            node[target_field] = new_muid
-            changeset.append({"action": "set_field_from_generated_uuid", "entity_id": old_muid, "entity_type": "node", "details": {"target_field": target_field, "new_muid": new_muid}, "old_state": old_state, "new_state": node.copy()})
-    print(f"Новый UUID сгенерирован для {len(changeset)} узлов.")
-    return graph_data, changeset
+    Raises:
+        NodeNotFoundError: If no node with the given MUID is found.
+    """
+    node_index = _find_node_index(graph_data, muid)
+    if node_index is None:
+        raise NodeNotFoundError(f"Node with MUID '{muid}' not found for deletion.")
+        
+    del graph_data['nodes'][node_index]
+    return graph_data
 
-def add_lid_to_links(graph_data: dict, params: dict) -> tuple[dict, list]:
-    """Добавляет LID ко всем связям типа 'link', у которых его еще нет."""
-    changeset = []
-    print("Операция: Проверка и добавление LID для связей 'link'...")
-    for relation in graph_data.get('relations', []):
+# --- Relation Operations ---
+
+def add_relation(graph_data: Dict[str, Any], relation_data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Adds a new relation to the graph.
+
+    Args:
+        graph_data: The dictionary representing the graph.
+        relation_data: A dictionary containing the data for the new relation.
+
+    Returns:
+        The modified graph_data dictionary.
+    """
+    if 'relations' not in graph_data:
+        graph_data['relations'] = []
+        
+    graph_data['relations'].append(relation_data)
+    return graph_data
+
+def update_relation(graph_data: Dict[str, Any], lid: str, updates: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Updates an existing relation with new data, identified by its LID.
+
+    Args:
+        graph_data: The dictionary representing the graph.
+        lid: The LID of the relation to update.
+        updates: A dictionary of fields to add or update in the relation.
+
+    Returns:
+        The modified graph_data dictionary.
+
+    Raises:
+        RelationNotFoundError: If no relation with the given LID is found.
+    """
+    relation_index = _find_relation_index(graph_data, lid)
+    if relation_index is None:
+        raise RelationNotFoundError(f"Relation with LID '{lid}' not found for update.")
+        
+    graph_data['relations'][relation_index].update(updates)
+    return graph_data
+
+def add_lid_to_all_links(graph_data: Dict[str, Any], id_generator_func) -> Dict[str, Any]:
+    """
+    Scans all relations and adds a unique LID to those of class 'link' that lack one.
+
+    This is a specialized operation for schema migration.
+
+    Args:
+        graph_data: The dictionary representing the graph.
+        id_generator_func: A function that returns a new unique ID (e.g., from utils).
+
+    Returns:
+        The modified graph_data dictionary.
+    """
+    if 'relations' not in graph_data:
+        return graph_data
+
+    for relation in graph_data['relations']:
+        # Process only 'link' class relations that don't already have an LID
         if relation.get('class') == 'link' and 'LID' not in relation:
-            old_state = relation.copy()
-            relation['LID'] = _generate_lid()
-            changeset.append({
-                "action": "add_lid_to_links",
-                "entity_id": relation['LID'],
-                "entity_type": "relation",
-                "old_state": old_state,
-                "new_state": relation.copy()
-            })
-    print(f"LID добавлен для {len(changeset)} связей.")
-    return graph_data, changeset
+            relation['LID'] = id_generator_func()
+            
+    return graph_data
 
-OPERATIONS_MAP = {
-    'add_node': add_node,
-    'add_relation': add_relation,
-    'update_relation': update_relation,
-    'add_node_field': add_node_field,
-    'copy_field': copy_field,
-    'set_field_from_generated_uuid': set_field_from_generated_uuid,
-    'add_lid_to_links': add_lid_to_links,
-}
+# --- Graph-level Operations ---
+
+def update_graph_properties(graph_data: Dict[str, Any], updates: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Updates top-level properties of the graph data object.
+
+    This is useful for modifying fields like 'validation_issues'.
+
+    Args:
+        graph_data: The dictionary representing the graph.
+        updates: A dictionary of top-level keys and values to update.
+
+    Returns:
+        The modified graph_data dictionary.
+    """
+    graph_data.update(updates)
+    return graph_data
+
