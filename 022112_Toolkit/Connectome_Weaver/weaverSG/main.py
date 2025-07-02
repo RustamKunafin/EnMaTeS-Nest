@@ -39,6 +39,8 @@ def create_parser() -> argparse.ArgumentParser:
     # --- Validator Command ---
     parser_validate = subparsers.add_parser("validate", help="Validates the integrity of an SG file.")
     parser_validate.add_argument("--file", type=Path, required=True, help="Path to the SG file to validate.")
+    # For machine-readable output
+    parser_validate.add_argument("--output-format", choices=['human', 'json'], default='human', help="Format for the output. 'json' is for machine processing.")
     parser_validate.set_defaults(func=validator.handle_validation)
 
     # --- Batch Modifier Command ---
@@ -82,9 +84,8 @@ def main():
     args = parser.parse_args()
 
     # Dispatch the call to the appropriate handler function
-    # based on the 'func' default set for each subparser.
     if args.command == 'validate':
-        args.func(file_path=args.file)
+        args.func(file_path=args.file, output_format=args.output_format)
     elif args.command == 'batch-modify':
         args.func(file_path=args.file, recipe_path=args.recipe)
     elif args.command == 'promote-relation':
@@ -98,7 +99,6 @@ def main():
     elif args.command == 'cleanup-backups':
         args.func(file_path=args.file, auto_confirm=args.yes)
     else:
-        # This case should not be reached due to 'required=True' in subparsers
         parser.print_help()
 
 if __name__ == "__main__":
