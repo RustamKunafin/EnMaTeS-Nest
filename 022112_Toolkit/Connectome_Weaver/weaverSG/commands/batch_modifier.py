@@ -4,8 +4,7 @@ batch_modifier.py
 
 This module implements the 'batch-modify' command for weaverSG.
 It processes a YAML recipe file containing a list of operations and applies them
-sequentially to a Semantic Graph. All operations within a single recipe run
-are recorded as a single, comprehensive transaction in the LSG.
+sequentially to a Semantic Graph.
 
 Membra Open Development License (MODL) v1.0
 Copyright (c) Rustam Kunafin 2025. All rights reserved.
@@ -51,6 +50,7 @@ def _execute_operation(
         'add_relation': operations.add_relation,
         'update_relation': operations.update_relation,
         'add_lid_to_all_links': operations.add_lid_to_all_links,
+        'update_relations_by_query': operations.update_relations_by_query,
     }
 
     handler = OPERATION_HANDLERS.get(action)
@@ -60,11 +60,17 @@ def _execute_operation(
     # Prepare arguments for the handler
     params = op_details.get('params', {})
     
-    # Store old state for the changeset
+    # Store old state for the changeset (good practice, though currently unused in simplified changeset)
     old_graph_data = copy.deepcopy(graph_data)
 
-    # Execute the operation
-    if action == 'add_lid_to_all_links':
+    # Execute the operation based on its specific signature
+    if action == 'update_relations_by_query':
+        query = params.get('query')
+        updates = params.get('updates')
+        if not query or not updates:
+            raise operations.OperationError("Action 'update_relations_by_query' requires 'query' and 'updates' in params.")
+        new_graph_data = handler(graph_data, query=query, updates=updates)
+    elif action == 'add_lid_to_all_links':
         # This is a special case that doesn't fit the standard parameter model
         new_graph_data = handler(graph_data, utils.generate_lid)
     else:
@@ -79,7 +85,6 @@ def _execute_operation(
     }
     
     return new_graph_data, changeset
-
 
 def handle_batch_modify(file_path: Path, recipe_path: Path):
     """

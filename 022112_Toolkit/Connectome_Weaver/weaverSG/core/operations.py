@@ -66,7 +66,7 @@ def add_node(graph_data: Dict[str, Any], node_data: Dict[str, Any]) -> Dict[str,
 
     Raises:
         DuplicateNodeError: If a node with the same MUID already exists.
-        OperationError: If node_data is missing 'MUID' or graph_data is malformed.
+        OperationError: If node_data is missing 'MUID'.
     """
     if 'MUID' not in node_data:
         raise OperationError("Cannot add node: 'MUID' is a required field.")
@@ -165,7 +165,7 @@ def update_relation(graph_data: Dict[str, Any], lid: str, updates: Dict[str, Any
     graph_data['relations'][relation_index].update(updates)
     return graph_data
 
-def add_lid_to_all_links(graph_data: Dict[str, Any], id_generator_func) -> Dict[str, Any]:
+def add_lid_to_all_links(graph_data: Dict[str, Any], id_generator_func: callable) -> Dict[str, Any]:
     """
     Scans all relations and adds a unique LID to those of class 'link' that lack one.
 
@@ -182,10 +182,41 @@ def add_lid_to_all_links(graph_data: Dict[str, Any], id_generator_func) -> Dict[
         return graph_data
 
     for relation in graph_data['relations']:
-        # Process only 'link' class relations that don't already have an LID
         if relation.get('class') == 'link' and 'LID' not in relation:
             relation['LID'] = id_generator_func()
             
+    return graph_data
+
+def update_relations_by_query(graph_data: Dict[str, Any], query: Dict[str, Any], updates: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Finds all relations matching a query dictionary and applies updates to them.
+
+    This is a powerful operation for batch updates where relations may not have
+    a unique, simple ID.
+
+    Args:
+        graph_data: The dictionary representing the graph.
+        query: A dictionary of key-value pairs to find matching relations.
+        updates: A dictionary of key-value pairs to apply to matched relations.
+
+    Returns:
+        The modified graph_data dictionary.
+    """
+    if 'relations' not in graph_data:
+        return graph_data
+
+    updated_indices = []
+    for i, relation in enumerate(graph_data['relations']):
+        is_match = all(item in relation.items() for item in query.items())
+        if is_match:
+            relation.update(updates)
+            updated_indices.append(i)
+    
+    if not updated_indices:
+        print(f"Warning: No relations found matching query {query}. No changes made.")
+    else:
+        print(f"Updated {len(updated_indices)} relation(s) matching query.")
+    
     return graph_data
 
 # --- Graph-level Operations ---
@@ -205,4 +236,3 @@ def update_graph_properties(graph_data: Dict[str, Any], updates: Dict[str, Any])
     """
     graph_data.update(updates)
     return graph_data
-
