@@ -1,13 +1,18 @@
-# ПРИМЕР КОМАНДЫ ДЛЯ ЗАПУСКА:
-# python 022112_Toolkit/Connectome_Weaver/weaverSG/main.py batch-modify --recipe 022112_Toolkit/Connectome_Weaver/recipes/recipe_datafix_v2.yaml --file 022190_Forge/SG_EnMaTeS_SystemMethodology_WorkingCopy.md
-
-# ВНИМАНИЕ: Этот рецепт исправляет логические ошибки в данных ДО миграции схемы.
-description: "Data Fix v2: Resolve dangling relations and add the missing node, preparing the graph for schema migration."
-steps:
-  # --- Шаг 1: Исправить 3 "висячие" связи, чтобы они указывали на Roadmap ---
-  - operation: update_relation
+# Membra Open Development License (MODL) v1.0
+# Copyright (c) Rustam Kunafin 2025. All rights reserved.
+# Licensed under MODL v1.0. See LICENSE or https://cyberries.org/04_Resources/0440_Agreements/MODL.
+#
+# USAGE EXAMPLE:
+# python -m weaverSG.main batch-modify --recipe path/to/this/recipe.yaml --file path/to/graph.md
+#
+# ATTENTION: This recipe fixes logical data errors BEFORE schema migration.
+id: "datafix_v2.1"
+description: "Data Fix v2.1: Resolve dangling relations by re-pointing them, and add the missing node."
+operations:
+  # --- Step 1: Fix 3 dangling relations to point to the Roadmap ---
+  - action: update_relations_by_query
     params:
-      identity: 
+      query: 
         from_MUID: "FEAT_EXTRACT_SUBGRAPH_CMD"
         to_MUID: "a308a937-d5bd-4408-8fa6-1bc181cc038c"
       updates:
@@ -15,9 +20,9 @@ steps:
         type: "documented_in"
         label: "Feature is tracked in the Roadmap"
   
-  - operation: update_relation
+  - action: update_relations_by_query
     params:
-      identity: 
+      query: 
         from_MUID: "FEAT_ENMATES_AGENT_REGISTRY"
         to_MUID: "a308a937-d5bd-4408-8fa6-1bc181cc038c"
       updates:
@@ -25,9 +30,9 @@ steps:
         type: "documented_in"
         label: "Feature is tracked in the Roadmap"
         
-  - operation: update_relation
+  - action: update_relations_by_query
     params:
-      identity: 
+      query: 
         from_MUID: "FEAT_ENMATES_AGENT_HIERARCHY"
         to_MUID: "a308a937-d5bd-4408-8fa6-1bc181cc038c"
       updates:
@@ -35,8 +40,8 @@ steps:
         type: "documented_in"
         label: "Feature is tracked in the Roadmap"
 
-  # --- Шаг 2: Добавить недостающий узел ---
-  - operation: add_node
+  # --- Step 2: Add the missing node ---
+  - action: add_node
     params:
       node_data:
         MUID: "a308a937-d5bd-4408-8fa6-1bc181cc038c"
@@ -53,8 +58,8 @@ steps:
         description: "Описание стандартной структуры папок и файлов для репозитория системы EnMaTeS."
         version: "1.2"
 
-  # --- Шаг 3: Добавить связи для нового узла (weaverSG автоматически создаст их как 'link' с 'LID') ---
-  - operation: add_relation
+  # --- Step 3: Add relations for the new node ---
+  - action: add_relation
     params:
       relation_data:
         from_MUID: "a308a937-d5bd-4408-8fa6-1bc181cc038c"
@@ -62,7 +67,7 @@ steps:
         type: "instance_of"
         weight: "high"
         
-  - operation: add_relation
+  - action: add_relation
     params:
       relation_data:
         from_MUID: "a308a937-d5bd-4408-8fa6-1bc181cc038c"

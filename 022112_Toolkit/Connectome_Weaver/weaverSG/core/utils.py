@@ -14,7 +14,7 @@ import uuid
 import yaml
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 # --- Custom Exceptions ---
 
@@ -66,6 +66,24 @@ def generate_transaction_id() -> str:
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     short_uuid = str(uuid.uuid4())[:8]
     return f"t_{timestamp}_{short_uuid}"
+
+# --- Data Validation Functions (RESTORED & INTEGRATED) ---
+
+def is_uuid(text: Optional[str]) -> bool:
+    """
+    Checks if a given string is a valid UUID.
+    This is required for conditional operations in recipes.
+    Returns False if the input is None or not a string.
+    """
+    if not isinstance(text, str):
+        return False
+    try:
+        # Attempt to create a UUID object from the text.
+        # A ValueError is raised if the string is not a valid UUID.
+        uuid.UUID(text)
+        return True
+    except ValueError:
+        return False
 
 # --- File Loading Functions ---
 

@@ -1,33 +1,41 @@
-# ПРИМЕР КОМАНДЫ ДЛЯ ЗАПУСКА:
-# python 022112_Toolkit/Connectome_Weaver/weaverSG/main.py batch-modify --recipe 022112_Toolkit/Connectome_Weaver/recipes/recipe_schema_v2_muid_alias_lid.yaml --file path/to/MyGraph.md
-
-# ВНИМАНИЕ: Этот рецепт проводит глобальную миграцию схемы. Применять ПОСЛЕ recipe_datafix_v2.
+# Membra Open Development License (MODL) v1.0
+# Copyright (c) Rustam Kunafin 2025. All rights reserved.
+# Licensed under MODL v1.0. See LICENSE or https://cyberries.org/04_Resources/0440_Agreements/MODL.
+#
+# USAGE EXAMPLE:
+# python -m weaverSG.main batch-modify --recipe path/to/this/recipe.yaml --file path/to/MyGraph.md
+#
+# ATTENTION: This recipe performs a global schema migration. Apply AFTER datafix recipes.
+id: "schema_migration_v2.0"
 description: "Schema Migration v2: Introduce 'alias', canonical UUIDs for MUIDs, and ensure all 'link' relations have an 'LID'."
-steps:
-  # --- Шаг 1: Добавить поле 'alias' ко всем узлам ---
-  - operation: add_node_field
+operations:
+  # --- Step 1: Add 'alias' field to all nodes ---
+  - action: add_node_field
     params:
       field_name: "alias"
       default_value: ""
 
-  # --- Шаг 2: Скопировать старые текстовые MUID в 'alias' ---
-  - operation: copy_field
+  # --- Step 2: Copy old textual MUIDs to 'alias' ---
+  - action: copy_field
     params:
       source_field: "MUID"
-      target_field: "alias"
+      dest_field: "alias" # Corrected from 'target_field' to 'dest_field'
+      entity_type: "node"
+      # The 'where' clause is now supported by the restored operations.py and utils.py
       where:
         field: "MUID"
         condition: "is_not_uuid"
 
-  # --- Шаг 3: Заменить старые MUID на новые каноничные UUID ---
-  - operation: set_field_from_generated_uuid
+  # --- Step 3: Replace old MUIDs with new canonical UUIDs ---
+  - action: set_field_from_generated_uuid
     params:
-      target_field: "MUID"
+      field_name: "MUID" # Corrected from 'target_field' to 'field_name'
+      entity_type: "node"
       where:
         field: "MUID"
         condition: "is_not_uuid"
         
-  # --- Шаг 4: Обеспечить наличие LID у всех существующих связей 'link' ---
-  # Это гарантирует, что даже старые связи, которые уже были в графе до введения LID, получат свой ID.
-  - operation: add_lid_to_links
+  # --- Step 4: Ensure all existing 'link' relations have an LID ---
+  # This guarantees that even old relations, which existed before LID was introduced, get their ID.
+  - action: add_lid_to_links
     params: {}

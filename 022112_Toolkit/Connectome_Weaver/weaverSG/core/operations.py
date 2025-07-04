@@ -15,7 +15,8 @@ Copyright (c) Rustam Kunafin 2025. All rights reserved.
 Licensed under MODL v1.0. See LICENSE or https://cyberries.org/04_Resources/0440_Agreements/MODL.
 """
 
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Callable
+import uuid # Needed for UUID generation
 
 # --- Custom Exceptions for Operation Failures ---
 
@@ -165,28 +166,6 @@ def update_relation(graph_data: Dict[str, Any], lid: str, updates: Dict[str, Any
     graph_data['relations'][relation_index].update(updates)
     return graph_data
 
-def add_lid_to_all_links(graph_data: Dict[str, Any], id_generator_func: callable) -> Dict[str, Any]:
-    """
-    Scans all relations and adds a unique LID to those of class 'link' that lack one.
-
-    This is a specialized operation for schema migration.
-
-    Args:
-        graph_data: The dictionary representing the graph.
-        id_generator_func: A function that returns a new unique ID (e.g., from utils).
-
-    Returns:
-        The modified graph_data dictionary.
-    """
-    if 'relations' not in graph_data:
-        return graph_data
-
-    for relation in graph_data['relations']:
-        if relation.get('class') == 'link' and 'LID' not in relation:
-            relation['LID'] = id_generator_func()
-            
-    return graph_data
-
 def update_relations_by_query(graph_data: Dict[str, Any], query: Dict[str, Any], updates: Dict[str, Any]) -> Dict[str, Any]:
     """
     Finds all relations matching a query dictionary and applies updates to them.
@@ -217,6 +196,52 @@ def update_relations_by_query(graph_data: Dict[str, Any], query: Dict[str, Any],
     else:
         print(f"Updated {len(updated_indices)} relation(s) matching query.")
     
+    return graph_data
+
+# --- Advanced Schema Migration & Other Operations (RESTORED & INTEGRATED) ---
+
+def add_node_field(graph_data: Dict[str, Any], field_name: str, default_value: Any = None) -> Dict[str, Any]:
+    """Adds a new field to all nodes if it doesn't exist."""
+    for node in graph_data.get('nodes', []):
+        if field_name not in node:
+            node[field_name] = default_value
+    return graph_data
+
+def copy_field(graph_data: Dict[str, Any], source_field: str, dest_field: str, entity_type: str = 'node') -> Dict[str, Any]:
+    """Copies a value from a source field to a destination field for all entities of a type."""
+    entities = graph_data.get(f"{entity_type}s", [])
+    for entity in entities:
+        if source_field in entity:
+            entity[dest_field] = entity[source_field]
+    return graph_data
+
+def set_field_from_generated_uuid(graph_data: Dict[str, Any], field_name: str, entity_type: str = 'node') -> Dict[str, Any]:
+    """Sets a field in all entities of a type to a newly generated UUID."""
+    entities = graph_data.get(f"{entity_type}s", [])
+    for entity in entities:
+        entity[field_name] = str(uuid.uuid4())
+    return graph_data
+
+def add_lid_to_all_links(graph_data: Dict[str, Any], id_generator_func: Callable) -> Dict[str, Any]:
+    """
+    Scans all relations and adds a unique LID to those of class 'link' that lack one.
+
+    This is a specialized operation for schema migration.
+
+    Args:
+        graph_data: The dictionary representing the graph.
+        id_generator_func: A function that returns a new unique ID (e.g., from utils).
+
+    Returns:
+        The modified graph_data dictionary.
+    """
+    if 'relations' not in graph_data:
+        return graph_data
+
+    for relation in graph_data['relations']:
+        if relation.get('class') == 'link' and 'LID' not in relation:
+            relation['LID'] = id_generator_func()
+            
     return graph_data
 
 # --- Graph-level Operations ---

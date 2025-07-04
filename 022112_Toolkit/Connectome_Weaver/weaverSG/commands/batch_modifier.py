@@ -42,22 +42,30 @@ def _execute_operation(
         raise operations.OperationError("Operation missing 'action' field.")
 
     # A dispatch table mapping action strings to functions from the operations module.
-    # This is cleaner and more scalable than a large if/elif/else block.
+    # This version is EXPANDED to include all restored functions.
     OPERATION_HANDLERS: Dict[str, Callable] = {
+        # Basic operations from FS version
         'add_node': operations.add_node,
         'update_node': operations.update_node,
         'delete_node': operations.delete_node,
         'add_relation': operations.add_relation,
         'update_relation': operations.update_relation,
-        'add_lid_to_all_links': operations.add_lid_to_all_links,
         'update_relations_by_query': operations.update_relations_by_query,
+        'update_graph_properties': operations.update_graph_properties,
+        # Restored schema migration operations
+        'add_node_field': operations.add_node_field,
+        'copy_field': operations.copy_field,
+        'set_field_from_generated_uuid': operations.set_field_from_generated_uuid,
+        'add_lid_to_all_links': operations.add_lid_to_all_links,
+        # Alias for recipe compatibility
+        'add_lid_to_links': operations.add_lid_to_all_links,
     }
 
+    # Prepare arguments for the handler
     handler = OPERATION_HANDLERS.get(action)
     if not handler:
-        raise operations.OperationError(f"Unknown action: {action}")
+        raise operations.OperationError(f"Unknown action: '{action}'")
 
-    # Prepare arguments for the handler
     params = op_details.get('params', {})
     
     # Store old state for the changeset (good practice, though currently unused in simplified changeset)
@@ -70,14 +78,14 @@ def _execute_operation(
         if not query or not updates:
             raise operations.OperationError("Action 'update_relations_by_query' requires 'query' and 'updates' in params.")
         new_graph_data = handler(graph_data, query=query, updates=updates)
-    elif action == 'add_lid_to_all_links':
+    elif action in ['add_lid_to_all_links', 'add_lid_to_links']:
         # This is a special case that doesn't fit the standard parameter model
-        new_graph_data = handler(graph_data, utils.generate_lid)
+        new_graph_data = handler(graph_data, id_generator_func=utils.generate_lid)
     else:
+        # Generic handler for all other operations that accept params directly
         new_graph_data = handler(graph_data, **params)
 
-    # For now, we create a simplified changeset. This can be enhanced later
-    # to show detailed diffs for each operation if needed.
+    # Create a simplified changeset for the log
     changeset = {
         "action": action,
         "params": params,
