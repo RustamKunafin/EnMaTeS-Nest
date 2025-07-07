@@ -1,0 +1,17 @@
+# Membra Open Development License (MODL) v1.0
+# Copyright (c) Rustam Kunafin 2025. All rights reserved.
+# Licensed under MODL v1.0. See LICENSE or https://cyberries.org/04_Resources/0440_Agreements/MODL.
+#
+# Recipe to add or update a simple test node.
+# Useful for verifying batch-modify functionality.
+id: "add_test_node_recipe"
+description: "Adds or updates a test node for verification purposes."
+
+operations:
+  - action: add_or_update_node
+    params:
+      node_data:
+        MUID: "a1b2c3d4-e5f6-7890-1234-567890abcdef" # REPLACE with a newly generated UUID
+        type: "test_node"
+        content: "This is a test node for verifying batch-modify with bundled log."
+        timestamp: "YYYY-MM-DDTHH:MM:SSZ" # REPLACE with current ISO timestamp

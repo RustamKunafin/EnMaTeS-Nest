@@ -101,7 +101,8 @@ def handle_detach_log(file_path: Path):
         # --- Operation ---
         # 1. Extract the log data
         detached_log_data = lsg_manager.sg_data.pop('log_history')
-        
+        lsg_manager.is_log_bundled = False # Log is no longer bundled
+
         # 2. Create a new transaction to record the detachment
         changeset = [{"action": "log_detached", "details": {"message": "Log was detached to an external file."}}]
         transaction_muid = utils.generate_transaction_id()
@@ -113,8 +114,9 @@ def handle_detach_log(file_path: Path):
         detached_log_data = operations.add_node(detached_log_data, transaction_node)
         
         # 3. Save the detached log to a new external LSG file
-        lsg_metadata = {"title": f"Log for {file_path.name}"} # Basic metadata
+        lsg_metadata, _ = lsg_manager._initialize_lsg() # Get full metadata from the manager's initializer
         graph_io.save_graph_to_file(lsg_manager.lsg_path, lsg_metadata, detached_log_data)
+
         print(f"Successfully created external log file: {lsg_manager.lsg_path}")
 
         # 4. Save the main SG file (now without the log_history)

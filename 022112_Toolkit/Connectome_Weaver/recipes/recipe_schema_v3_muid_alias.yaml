@@ -2,12 +2,9 @@
 # Copyright (c) Rustam Kunafin 2025. All rights reserved.
 # Licensed under MODL v1.0. See LICENSE or https://cyberries.org/04_Resources/0440_Agreements/MODL.
 #
-# USAGE EXAMPLE:
-# python -m weaverSG.main batch-modify --recipe path/to/this/recipe.yaml --file path/to/MyGraph.md
-#
 # ATTENTION: This recipe performs a global schema migration. Apply AFTER datafix recipes.
-id: "schema_migration_v2.0"
-description: "Schema Migration v2: Introduce 'alias', canonical UUIDs for MUIDs, and ensure all 'link' relations have an 'LID'."
+id: "schema_migration_v3.0"
+description: "Schema Migration v3: Introduce 'alias', canonical UUIDs for MUIDs, and ensure all 'link' relations have an 'LID'."
 operations:
   # --- Step 1: Add 'alias' field to all nodes ---
   - action: add_node_field
@@ -19,7 +16,7 @@ operations:
   - action: copy_field
     params:
       source_field: "MUID"
-      dest_field: "alias" # Corrected from 'target_field' to 'dest_field'
+      target_field: "alias" 
       entity_type: "node"
       # The 'where' clause is now supported by the restored operations.py and utils.py
       where:
@@ -29,7 +26,7 @@ operations:
   # --- Step 3: Replace old MUIDs with new canonical UUIDs ---
   - action: set_field_from_generated_uuid
     params:
-      field_name: "MUID" # Corrected from 'target_field' to 'field_name'
+      target_field: "MUID" 
       entity_type: "node"
       where:
         field: "MUID"
@@ -39,3 +36,9 @@ operations:
   # This guarantees that even old relations, which existed before LID was introduced, get their ID.
   - action: add_lid_to_links
     params: {}
+
+  # --- Step 5: Update relation endpoints to use new node MUIDs (UUIDs) ---
+  # This is necessary because Step 3 changes node MUIDs, and relations must reference the new MUIDs.
+  - action: update_relation_endpoints_after_muid_change
+    params: {}
+

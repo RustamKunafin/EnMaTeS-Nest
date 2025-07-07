@@ -119,20 +119,22 @@ def save_graph_to_file(file_path: Path, metadata: Dict[str, Any], graph_data: Di
         GraphFileSaveError: If an error occurs during the file writing process.
     """
     try:
-        # Serialize metadata to a YAML string
-        # allow_unicode=True preserves non-ASCII characters.
-        # sort_keys=False preserves the original order of keys in the metadata.
-        yaml_string = yaml.dump(metadata, allow_unicode=True, sort_keys=False, default_flow_style=False)
+        # Serialize metadata to a clean YAML string
+        yaml_string = yaml.dump(
+            metadata,
+            allow_unicode=True,
+            sort_keys=False,
+            default_flow_style=False,
+            indent=2
+        )
 
         # Serialize graph data to a formatted JSON string
-        # indent=2 makes the JSON human-readable.
-        # ensure_ascii=False preserves non-ASCII characters.
         json_string = json.dumps(graph_data, indent=2, ensure_ascii=False)
 
         # Assemble the full file content
         file_content = (
             f"---\n"
-            f"{yaml_string}"
+            f"{yaml_string.strip()}\n"
             f"---\n\n"
             f"```json\n"
             f"{json_string}\n"
@@ -181,4 +183,3 @@ def create_backup(file_path: Path) -> Path:
         return backup_path
     except Exception as e:
         raise GraphFileError(f"Failed to create backup for {file_path}: {e}") from e
-

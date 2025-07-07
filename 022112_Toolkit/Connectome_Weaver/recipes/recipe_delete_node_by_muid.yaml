@@ -1,0 +1,9 @@
+# Membra Open Development License (MODL) v1.0
+# Copyright (c) Rustam Kunafin 2025. All rights reserved.
+# Licensed under MODL v1.0. See LICENSE or https://cyberries.org/04_Resources/0440_Agreements/MODL.
+id: "delete_node_by_muid_recipe"
+description: "Recipe to delete a single node by its MUID."
+operations:
+  - action: delete_node
+    params:
+      muid: "REPLACE_WITH_NODE_MUID"

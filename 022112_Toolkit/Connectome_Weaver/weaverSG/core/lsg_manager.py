@@ -46,9 +46,22 @@ class LSGManager:
         # Load or initialize log graph data
         try:
             self.lsg_metadata, self.lsg_data = graph_io.load_graph_from_file(self.lsg_path)
+            self.is_log_bundled = False # Log was found as a separate file
         except graph_io.GraphFileNotFoundError:
-            print(f"Log file not found at {self.lsg_path}. A new one will be created.")
-            self.lsg_metadata, self.lsg_data = self._initialize_lsg()
+            print(f"Log file not found at {self.lsg_path}.")
+            # Check if log history is bundled in the main SG file
+            # Expecting a dictionary with 'nodes' and 'relations' keys under 'log_history'
+            bundled_log_data = self.sg_data.get('log_history')
+            if isinstance(bundled_log_data, dict) and 'nodes' in bundled_log_data and 'relations' in bundled_log_data:
+                 print("Found bundled log history in the main SG file.")
+                 self.lsg_data = bundled_log_data # Load the entire dictionary
+                 # Basic metadata for bundled log (can be extended if needed)
+                 self.lsg_metadata = {'title': f"Bundled log for {self.sg_path.name}", 'graph_version': '1.0'}
+                 self.is_log_bundled = True
+            else:
+                print("No bundled log history found. A new log will be created.")
+                self.lsg_metadata, self.lsg_data = self._initialize_lsg()
+                self.is_log_bundled = False # New log was created
 
     def _get_lsg_path_for_sg(self, sg_path: Path) -> Path:
         """Determines the conventional path for the LSG file."""
@@ -144,15 +157,26 @@ class LSGManager:
     def save_changes(self) -> None:
         """
         Saves all changes to the SG and LSG files, after creating a backup.
+        If the log is bundled in the SG, saves only the SG file.
         """
         print("Saving changes...")
         # 1. Create a backup of the original SG file before overwriting
         graph_io.create_backup(self.sg_path)
 
         # 2. Save the (potentially modified) main SG file
-        graph_io.save_graph_to_file(self.sg_path, self.sg_metadata, self.sg_data)
-        print(f"Successfully saved main graph to: {self.sg_path}")
 
-        # 3. Save the updated LSG file
-        graph_io.save_graph_to_file(self.lsg_path, self.lsg_metadata, self.lsg_data)
-        print(f"Successfully saved log graph to: {self.lsg_path}")
+        if self.is_log_bundled:
+            # If log is bundled, update log_history in sg_data and save only SG
+            self.sg_data['log_history'] = self.lsg_data
+            graph_io.save_graph_to_file(self.sg_path, self.sg_metadata, self.sg_data)
+            print(f"Successfully saved main graph with bundled log to: {self.sg_path}")
+            # No separate LSG file to save in this case
+
+        else:
+            # If log is separate, save both SG and LSG files
+            graph_io.save_graph_to_file(self.sg_path, self.sg_metadata, self.sg_data)
+            print(f"Successfully saved main graph to: {self.sg_path}")
+
+            graph_io.save_graph_to_file(self.lsg_path, self.lsg_metadata, self.lsg_data)
+            print(f"Successfully saved log graph to: {self.lsg_path}")
+

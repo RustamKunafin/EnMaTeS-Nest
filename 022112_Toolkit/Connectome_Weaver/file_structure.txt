@@ -1,0 +1,39 @@
+022112_Toolkit/Connectome_Weaver
+├── check_dependencies.py
+├── file_structure.txt
+├── README.md
+├── recipes
+│   ├── recipe_datafix_v2_dangling_nodes.yaml
+│   └── recipe_schema_v2_muid_alias.yaml
+└── weaverSG
+    ├── commands
+    │   ├── batch_modifier.py
+    │   ├── cleaner.py
+    │   ├── __init__.py
+    │   ├── log_archiver.py
+    │   ├── log_bundler.py
+    │   ├── promote_handler.py
+    │   ├── __pycache__
+    │   │   ├── batch_modifier.cpython-312.pyc
+    │   │   ├── cleaner.cpython-312.pyc
+    │   │   ├── __init__.cpython-312.pyc
+    │   │   ├── log_archiver.cpython-312.pyc
+    │   │   ├── log_bundler.cpython-312.pyc
+    │   │   ├── promote_handler.cpython-312.pyc
+    │   │   └── validator.cpython-312.pyc
+    │   └── validator.py
+    ├── core
+    │   ├── graph_io.py
+    │   ├── __init__.py
+    │   ├── lsg_manager.py
+    │   ├── operations.py
+    │   ├── __pycache__
+    │   │   ├── graph_io.cpython-312.pyc
+    │   │   ├── __init__.cpython-312.pyc
+    │   │   ├── lsg_manager.cpython-312.pyc
+    │   │   ├── operations.cpython-312.pyc
+    │   │   └── utils.cpython-312.pyc
+    │   └── utils.py
+    └── main.py
+
+7 directories, 30 files

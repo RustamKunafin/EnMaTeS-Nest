@@ -2,9 +2,6 @@
 # Copyright (c) Rustam Kunafin 2025. All rights reserved.
 # Licensed under MODL v1.0. See LICENSE or https://cyberries.org/04_Resources/0440_Agreements/MODL.
 #
-# USAGE EXAMPLE:
-# python -m weaverSG.main batch-modify --recipe path/to/this/recipe.yaml --file path/to/graph.md
-#
 # ATTENTION: This recipe fixes logical data errors BEFORE schema migration.
 id: "datafix_v2.1"
 description: "Data Fix v2.1: Resolve dangling relations by re-pointing them, and add the missing node."
@@ -41,7 +38,7 @@ operations:
         label: "Feature is tracked in the Roadmap"
 
   # --- Step 2: Add the missing node ---
-  - action: add_node
+  - action: add_or_update_node
     params:
       node_data:
         MUID: "a308a937-d5bd-4408-8fa6-1bc181cc038c"

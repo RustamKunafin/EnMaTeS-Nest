@@ -48,6 +48,7 @@ def _execute_operation(
         'add_node': operations.add_node,
         'update_node': operations.update_node,
         'delete_node': operations.delete_node,
+        'add_or_update_node': operations.add_or_update_node,
         'add_relation': operations.add_relation,
         'update_relation': operations.update_relation,
         'update_relations_by_query': operations.update_relations_by_query,
@@ -57,6 +58,7 @@ def _execute_operation(
         'copy_field': operations.copy_field,
         'set_field_from_generated_uuid': operations.set_field_from_generated_uuid,
         'add_lid_to_all_links': operations.add_lid_to_all_links,
+        'update_relation_endpoints_after_muid_change': operations.update_relation_endpoints_after_muid_change,
         # Alias for recipe compatibility
         'add_lid_to_links': operations.add_lid_to_all_links,
     }
