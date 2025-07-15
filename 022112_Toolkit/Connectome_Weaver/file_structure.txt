@@ -3,8 +3,10 @@
 ├── file_structure.txt
 ├── README.md
 ├── recipes
-│   ├── recipe_datafix_v2_dangling_nodes.yaml
-│   └── recipe_schema_v2_muid_alias.yaml
+│   ├── recipe_add_test_node.yaml
+│   ├── recipe_datafix_v3_dangling_nodes.yaml
+│   ├── recipe_delete_node_by_muid.yaml
+│   └── recipe_schema_v3_muid_alias.yaml
 └── weaverSG
     ├── commands
     │   ├── batch_modifier.py
@@ -36,4 +38,4 @@
     │   └── utils.py
     └── main.py
 
-7 directories, 30 files
+7 directories, 32 files
