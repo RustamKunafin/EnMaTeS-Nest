@@ -1,0 +1,21 @@
+# Membra Open Development License (MODL) v1.0
+# Copyright (c) Rustam Kunafin 2025. All rights reserved.
+# Licensed under MODL v1.0. See LICENSE or https://cyberries.org/04_Resources/0440_Agreements/MODL.
+#
+# Recipe: Add WeaverSG Development Features
+# Purpose: Adds nodes and relations to the graph to track planned features for the Connectome Weaver tool.
+# Related Concepts: Connectome Weaver, EnMaTeS System/Methodology, EnMaTeS Improvement Roadmap
+
+id: "add_weaver_features_recipe"
+description: "Adds features related to WeaverSG development."
+
+operations:
+  # Feature: Add delete_relation_by_query operation to WeaverSG
+  - action: add_node
+    params:
+      node_data:
+        MUID: "GENERATE_NEW" # REPLACE with a newly generated UUID for this feature
+        type: "feature"
+        content: "Feature: Delete Relation by Query in WeaverSG"
+        role: "system_feature"
+        context: "meta, design"

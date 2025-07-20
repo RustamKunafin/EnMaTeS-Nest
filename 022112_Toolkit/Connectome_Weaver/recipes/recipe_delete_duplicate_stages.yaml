@@ -1,0 +1,18 @@
+# Membra Open Development License (MODL) v1.0
+# Copyright (c) Rustam Kunafin 2025. All rights reserved.
+# Licensed under MODL v1.0. See LICENSE or https://cyberries.org/04_Resources/0440_Agreements/MODL.
+#
+# Recipe: Delete Duplicate Stage III Nodes
+# Purpose: Deletes duplicate nodes identified by validator with identical alias.
+# Related Issues: WARNING: POTENTIAL_PRE_MIGRATION_DUPLICATE in TEST_SG_EnMaTeS_Systemology.md
+
+id: "delete_duplicate_stage_iii_nodes_recipe"
+description: "Deletes duplicate Stage III workflow nodes."
+
+operations:
+  - action: delete_node
+    params:
+      muid: 002d39a3-392e-4ee4-9a88-83fd7f7525ea
+  - action: delete_node
+    params:
+      muid: fa89837e-827d-4574-a7b4-34676a56dbf4
