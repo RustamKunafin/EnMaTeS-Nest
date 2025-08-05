@@ -4,7 +4,7 @@ muid: b6b433df-bfcd-43ba-9b52-8248eb266081
 title: FPS-Addon_Test2 v1.0
 entityType: artifact
 artifactType: framework_prompt_module_addon
-description: Дополнение к FPS_DomainExpert, конкретизирующее роль ИИ-Теста2.
+description: Дополнение к FPS_DomainExpert, конкретизирующее роль ИИ-Теста3. Тестовое изменение.
 version: "1.0"
 status: active
 tags: Membra, EnMaTeS
