@@ -3,7 +3,7 @@ muid: 7969c80a-1efb-489d-8bfd-978472b5fcb7
 title: FPM-Use v1.2
 entityType: artifact
 artifactType: framework_prompt_module
-description: "Режим Фреймворк-Промпта ИИ для использования (клиентский). Версия 1.2 добавляет команды для сбора обратной связи от пользователей (rate_answer, suggest_improvement."
+description: "Режим Фреймворк-Промпта ИИ для использования (клиентский). Версия 1.2 добавляет команды для сбора обратной связи от пользователей."
 version: "1.2"
 status: revised
 tags: Membra, EnMaTeS
