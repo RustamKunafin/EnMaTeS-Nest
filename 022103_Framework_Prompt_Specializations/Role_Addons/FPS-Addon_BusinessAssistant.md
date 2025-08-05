@@ -4,7 +4,7 @@ muid: 32008e3f-8c61-48bc-8f15-9256d676b12a
 title: FPS-Addon_BusinessAssistant v1.0
 entityType: artifact
 artifactType: framework_prompt_module_addon
-description: Дополнение к FPS_DomainExpert, конкретизирующее роль ИИ-ассистента как Бизнес-ассистента. Описывает специфические компетенции и ограничения для этой роли.
+description: Дополнение к FPS_DomainExpert, конкретизирующее роль ИИ-ассистента как Бизнес-ассистента. Описывает специфические компетенции и ограничения для этой роли. Тестовое изменение.
 version: "1.0"
 status: active
 tags: Membra, EnMaTeS, BusinessAssistant

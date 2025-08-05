@@ -1,7 +1,7 @@
 ---
 yamlTemplate: membraArt
-muid: b6b433df-bfcd-43ba-9b52-8248eb266081
-title: FPS-Addon_Test2 v1.0
+muid: 5d24f222-0aa1-47d1-90c9-3a9b048d0914
+title: FPS-Addon_Test3 v1.0
 entityType: artifact
 artifactType: framework_prompt_module_addon
 description: Дополнение к FPS_DomainExpert, конкретизирующее роль ИИ-Теста3. Тестовое изменение.
@@ -11,6 +11,6 @@ tags: Membra, EnMaTeS
 publish: false
 ---
 
-# FPS-Addon_Test2 v1.0 (Specialization Addon - Test2)
+# FPS-Addon_Test3 v1.0 (Specialization Addon - Test3)
 
-Test2 text.
+Test3 text.
